@@ -110,12 +110,39 @@ function Sidebar() {
           {renderItems(menuItems)}
 
           {/* AI CARD */}
+          {/* AI CARD */}
+          <div className="mt-4 p-3 rounded-4 ai-sidebar-card">
+            <i className="bi bi-stars fs-4"></i>
+
+            <h6 className="fw-bold mt-2 mb-1">AI Health Assistant</h6>
+
+            <p className="mb-2">
+              Get AI-powered insights from medical reports.
+            </p>
+
+            <NavLink
+              to="/ai-assistant"
+              className="ai-sidebar-btn"
+              onClick={() => setMenuOpen(false)}
+            >
+              Explore AI
+              <i className="bi bi-arrow-right ms-1"></i>
+            </NavLink>
+          </div>
         </div>
 
         {/* FOOTER */}
         <div className="p-3 border-top sidebar-footer">
           <div className="d-flex align-items-center gap-2">
             <i className="bi bi-shield-check fs-4 text-success"></i>
+
+            <div>
+              <div className="fw-semibold" style={{ fontSize: "12px" }}>
+                Secure Healthcare
+              </div>
+
+              <small className="text-secondary">Medical data protection</small>
+            </div>
           </div>
         </div>
       </div>
