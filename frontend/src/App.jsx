@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-import Sidebar from "./components/SideBar/sidebar.jsx";
-import NavBar from "./components/NavBar/Navbar.jsx";
+import Sidebar from "./components/Sidebar/Sidebar.jsx";
+import NavBar from "./components/Navbar/Navbar.jsx";
 
 // import WelcomePage from "./pages/Dashboard/Dashboard";
 import AddPatient from "./pages/patients/AddPatient";
