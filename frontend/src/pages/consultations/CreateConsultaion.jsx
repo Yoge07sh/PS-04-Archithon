@@ -1,4 +1,3 @@
-
 import "bootstrap/dist/css/bootstrap.min.css";
 
 import { useEffect, useRef, useState } from "react";
@@ -27,6 +26,7 @@ import {
 
 import { createWorker } from "tesseract.js";
 import { addConsultationLocally } from "../../db/consultationStorage";
+import { transcribeBlob } from "../../utils/browserWhisper";
 
 const apiUrl = import.meta.env.VITE_API_URL;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
@@ -38,7 +38,6 @@ const CreateConsultation = () => {
 
   const patientId = routePatientId || location.state?.patientId || "";
 
-  const recognitionRef = useRef(null);
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
   const audioStreamRef = useRef(null);
@@ -55,6 +54,7 @@ const CreateConsultation = () => {
   const [source, setSource] = useState("manual");
 
   const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
   const [hasRecordedAudio, setHasRecordedAudio] = useState(false);
   const [recordedAudioUrl, setRecordedAudioUrl] = useState("");
 
@@ -74,20 +74,6 @@ const CreateConsultation = () => {
 
     return () => {
       mountedRef.current = false;
-
-      if (recognitionRef.current) {
-        recognitionRef.current.onresult = null;
-        recognitionRef.current.onerror = null;
-        recognitionRef.current.onend = null;
-
-        try {
-          recognitionRef.current.abort();
-        } catch {
-          // Recognition may already have stopped.
-        }
-
-        recognitionRef.current = null;
-      }
 
       if (mediaRecorderRef.current) {
         const recorder = mediaRecorderRef.current;
@@ -127,9 +113,6 @@ const CreateConsultation = () => {
     };
   }, []);
 
-  const getRecognitionConstructor = () =>
-    window.SpeechRecognition || window.webkitSpeechRecognition;
-
   // ============================================
   // AUDIO HELPERS
   // ============================================
@@ -155,11 +138,60 @@ const CreateConsultation = () => {
   };
 
   // ============================================
+  // TRANSCRIBE RECORDING (in-browser Whisper)
+  // ============================================
+
+  const transcribeRecording = async (audioBlob) => {
+    try {
+      setTranscribing(true);
+      setError("");
+      setSuccess(
+        "Preparing transcription. The first time this downloads a speech model, which can take a minute...",
+      );
+
+      const text = await transcribeBlob(audioBlob, (progress) => {
+        if (
+          mountedRef.current &&
+          progress?.status === "progress" &&
+          typeof progress.progress === "number"
+        ) {
+          setSuccess(
+            `Downloading speech model: ${Math.round(progress.progress)}%`,
+          );
+        }
+      });
+
+      if (!mountedRef.current) return;
+
+      if (!text) {
+        setSuccess("");
+        setError("No speech was detected in the recording.");
+        return;
+      }
+
+      setTranscription((previous) =>
+        [previous.trim(), text].filter(Boolean).join(" "),
+      );
+
+      setSuccess("Transcription complete. Review it for mistakes.");
+    } catch (err) {
+      console.error("Transcription error:", err);
+
+      if (mountedRef.current) {
+        setSuccess("");
+        setError(err.message || "Unable to transcribe the recording.");
+      }
+    } finally {
+      if (mountedRef.current) setTranscribing(false);
+    }
+  };
+
+  // ============================================
   // START AUDIO RECORDING
   // ============================================
 
   const startVoiceRecording = async () => {
-    if (recording || saving || processingOcr || generatingAi) {
+    if (recording || transcribing || saving || processingOcr || generatingAi) {
       return;
     }
 
@@ -169,7 +201,10 @@ const CreateConsultation = () => {
     console.clear();
     console.log("========== AUDIO RECORDING DEBUG ==========");
     console.log("Browser:", navigator.userAgent);
-    console.log("MediaRecorder available:", typeof MediaRecorder !== "undefined");
+    console.log(
+      "MediaRecorder available:",
+      typeof MediaRecorder !== "undefined",
+    );
     console.log(
       "getUserMedia available:",
       Boolean(navigator.mediaDevices?.getUserMedia),
@@ -194,13 +229,8 @@ const CreateConsultation = () => {
     try {
       console.log("Requesting microphone permission...");
 
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-        },
-      });
+      // Default constraints: the most compatible choice.
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
       if (!mountedRef.current) {
         stream.getTracks().forEach((track) => track.stop());
@@ -237,12 +267,6 @@ const CreateConsultation = () => {
         "audio/ogg;codecs=opus",
       ];
 
-      console.log("Checking supported audio formats...");
-
-      supportedMimeTypes.forEach((type) => {
-        console.log(type, MediaRecorder.isTypeSupported(type));
-      });
-
       const selectedMimeType = supportedMimeTypes.find((type) =>
         MediaRecorder.isTypeSupported(type),
       );
@@ -261,10 +285,6 @@ const CreateConsultation = () => {
       };
 
       mediaRecorder.ondataavailable = (event) => {
-        console.log("Audio data event received.");
-        console.log("Chunk size:", event.data?.size ?? 0);
-        console.log("Chunk MIME type:", event.data?.type ?? "unknown");
-
         if (event.data && event.data.size > 0) {
           audioChunksRef.current.push(event.data);
 
@@ -273,8 +293,9 @@ const CreateConsultation = () => {
             0,
           );
 
-          console.log("Chunks collected:", audioChunksRef.current.length);
-          console.log("Accumulated size:", totalSize, "bytes");
+          console.log(
+            `Chunk ${audioChunksRef.current.length}: ${event.data.size} bytes (total ${totalSize})`,
+          );
         } else {
           console.warn("Received an empty audio chunk.");
         }
@@ -295,7 +316,6 @@ const CreateConsultation = () => {
 
       mediaRecorder.onstop = () => {
         console.log("========== RECORDING STOPPED ==========");
-        console.log("Final recorder state:", mediaRecorder.state);
 
         const chunks = [...audioChunksRef.current];
 
@@ -304,11 +324,9 @@ const CreateConsultation = () => {
           chunks.find((chunk) => chunk.type)?.type ||
           "audio/webm";
 
-        console.log("Total chunks:", chunks.length);
-        console.log("MIME type:", mimeType);
-
         const audioBlob = new Blob(chunks, { type: mimeType });
 
+        console.log("Total chunks:", chunks.length);
         console.log("Final audio size:", audioBlob.size, "bytes");
         console.log("Final Blob MIME type:", audioBlob.type);
 
@@ -347,17 +365,18 @@ const CreateConsultation = () => {
         audioUrlRef.current = audioUrl;
 
         console.log("Audio object URL created:", audioUrl);
-        console.log("Audio Blob created successfully.");
-        console.log("========== END RECORDING DEBUG ==========");
 
         setRecordedAudioUrl(audioUrl);
         setHasRecordedAudio(true);
 
         setSuccess(
-          `Recording captured (${(audioBlob.size / 1024).toFixed(1)} KB). Try playing it below.`,
+          `Recording captured (${(audioBlob.size / 1024).toFixed(1)} KB). Transcribing...`,
         );
 
         audioChunksRef.current = [];
+
+        // Convert the recorded audio to text.
+        transcribeRecording(audioBlob);
       };
 
       // Start actual audio recording.
@@ -367,111 +386,6 @@ const CreateConsultation = () => {
 
       setRecording(true);
       setSource("transcription");
-
-      // ========================================
-      // SPEECH-TO-TEXT
-      // ========================================
-
-      const SpeechRecognition = getRecognitionConstructor();
-
-      if (!SpeechRecognition) {
-        console.warn("SpeechRecognition is not supported in this browser.");
-
-        setError(
-          "Audio recording is active, but speech-to-text is unsupported. You can still play your audio and enter transcription manually.",
-        );
-
-        return;
-      }
-
-      try {
-        const recognition = new SpeechRecognition();
-
-        recognition.lang = "en-IN";
-        recognition.continuous = true;
-        recognition.interimResults = true;
-
-        recognition.onstart = () => {
-          if (mountedRef.current) {
-            setSuccess("Recording audio and listening for speech...");
-          }
-        };
-
-        recognition.onresult = (event) => {
-          if (!mountedRef.current) return;
-
-          let finalText = "";
-          let interimText = "";
-
-          for (
-            let index = event.resultIndex;
-            index < event.results.length;
-            index++
-          ) {
-            const result = event.results[index];
-            const text = result[0]?.transcript?.trim();
-
-            if (!text) continue;
-
-            if (result.isFinal) {
-              finalText += `${text} `;
-            } else {
-              interimText += `${text} `;
-            }
-          }
-
-          if (finalText.trim()) {
-            setTranscription((previous) =>
-              [previous.trim(), finalText.trim()]
-                .filter(Boolean)
-                .join(" "),
-            );
-          }
-
-          if (interimText.trim()) {
-            setSuccess(`Listening: ${interimText.trim()}`);
-          }
-        };
-
-        recognition.onerror = (event) => {
-          console.error("Speech recognition error:", event.error);
-
-          if (!mountedRef.current) return;
-
-          if (event.error === "not-allowed") {
-            setError(
-              "Speech recognition permission was denied. Audio recording may still work.",
-            );
-          } else if (
-            event.error !== "no-speech" &&
-            event.error !== "aborted"
-          ) {
-            setError(
-              `Speech-to-text error: ${event.error}. The audio recorder may still be recording.`,
-            );
-          }
-        };
-
-        recognition.onend = () => {
-          if (recognitionRef.current === recognition) {
-            recognitionRef.current = null;
-          }
-
-          console.log("Speech recognition ended.");
-        };
-
-        recognitionRef.current = recognition;
-        recognition.start();
-      } catch (recognitionError) {
-        console.error(
-          "Unable to start speech recognition:",
-          recognitionError,
-        );
-
-        setError(
-          "Audio recording is running, but speech-to-text could not start. You can enter the transcription manually.",
-        );
-      }
     } catch (err) {
       console.error("========== MICROPHONE ERROR ==========");
       console.error("Name:", err.name);
@@ -521,17 +435,6 @@ const CreateConsultation = () => {
   const stopVoiceRecording = () => {
     console.log("Stop recording requested.");
 
-    if (recognitionRef.current) {
-      const recognition = recognitionRef.current;
-      recognitionRef.current = null;
-
-      try {
-        recognition.stop();
-      } catch (err) {
-        console.warn("Speech recognition already stopped:", err);
-      }
-    }
-
     const mediaRecorder = mediaRecorderRef.current;
 
     if (mediaRecorder && mediaRecorder.state !== "inactive") {
@@ -578,15 +481,7 @@ const CreateConsultation = () => {
     console.log("========== AUDIO PLAYER DEBUG ==========");
     console.log("Audio duration:", audio.duration);
     console.log("Audio readyState:", audio.readyState);
-    console.log("Audio networkState:", audio.networkState);
-    console.log("Audio MIME type:", audio.currentSrc);
     console.log("Audio error:", audio.error);
-
-    if (Number.isFinite(audio.duration)) {
-      console.log("Audio metadata loaded successfully.");
-    } else {
-      console.warn("Audio duration is not available.");
-    }
   };
 
   const handleAudioCanPlay = () => {
@@ -736,20 +631,13 @@ const CreateConsultation = () => {
 
     const symptoms = getSymptoms();
 
-    const combinedText = [
-      transcription.trim()
-        ? `VOICE TRANSCRIPTION:\n${transcription.trim()}`
-        : "",
-      ocrText.trim() ? `OCR TEXT:\n${ocrText.trim()}` : "",
-      notes.trim() ? `CLINICAL NOTES:\n${notes.trim()}` : "",
-      symptoms.length
-        ? `REPORTED SYMPTOMS:\n${symptoms.join(", ")}`
-        : "",
-    ]
-      .filter(Boolean)
-      .join("\n\n");
+    const hasContent =
+      symptoms.length > 0 ||
+      notes.trim() ||
+      transcription.trim() ||
+      ocrText.trim();
 
-    if (!combinedText) {
+    if (!hasContent) {
       setError(
         "Enter symptoms or clinical notes, record a voice transcription, or upload a document image before generating the AI draft.",
       );
@@ -759,6 +647,7 @@ const CreateConsultation = () => {
     try {
       setGeneratingAi(true);
 
+      // The backend builds the clinical text itself from these fields.
       const response = await axios.post(
         `${apiUrl}/ai/clinical-draft`,
         {
@@ -767,7 +656,6 @@ const CreateConsultation = () => {
           notes: notes.trim(),
           transcription: transcription.trim(),
           ocrText: ocrText.trim(),
-          clinicalText: combinedText,
         },
         {
           withCredentials: true,
@@ -822,6 +710,11 @@ const CreateConsultation = () => {
       return;
     }
 
+    if (transcribing) {
+      setError("Wait for the transcription to finish before saving.");
+      return;
+    }
+
     if (!patientId || patientId.startsWith("local-")) {
       setError(
         "A valid server patient ID is required. Synchronize the patient before creating this consultation.",
@@ -837,11 +730,7 @@ const CreateConsultation = () => {
       try {
         aiDraft = JSON.parse(aiDraftText);
 
-        if (
-          !aiDraft ||
-          typeof aiDraft !== "object" ||
-          Array.isArray(aiDraft)
-        ) {
+        if (!aiDraft || typeof aiDraft !== "object" || Array.isArray(aiDraft)) {
           setError("The AI draft must be a valid JSON object.");
           return;
         }
@@ -877,11 +766,9 @@ const CreateConsultation = () => {
           );
 
           const savedConsultation =
-            response.data?.consultation ||
-            response.data?.data?.consultation;
+            response.data?.consultation || response.data?.data?.consultation;
 
-          const savedId =
-            savedConsultation?._id || savedConsultation?.id;
+          const savedId = savedConsultation?._id || savedConsultation?.id;
 
           if (!response.data?.success && !savedConsultation) {
             throw new Error(
@@ -904,10 +791,9 @@ const CreateConsultation = () => {
         } catch (requestError) {
           const status = requestError.response?.status;
 
-          const connectivityError = [
-            "ERR_NETWORK",
-            "ECONNABORTED",
-          ].includes(requestError.code);
+          const connectivityError = ["ERR_NETWORK", "ECONNABORTED"].includes(
+            requestError.code,
+          );
 
           if (status || navigator.onLine || !connectivityError) {
             throw requestError;
@@ -937,6 +823,8 @@ const CreateConsultation = () => {
   // UI
   // ============================================
 
+  const busy = saving || processingOcr || generatingAi || transcribing;
+
   return (
     <Container className="py-4">
       <div className="mb-4">
@@ -953,31 +841,21 @@ const CreateConsultation = () => {
         <h2 className="fw-bold">New Consultation</h2>
 
         <p className="text-secondary">
-          Record clinical information using voice, medical document images,
-          or manual entry.
+          Record clinical information using voice, medical document images, or
+          manual entry.
         </p>
 
-        {patientId && (
-          <Badge bg="secondary">Patient ID: {patientId}</Badge>
-        )}
+        {patientId && <Badge bg="secondary">Patient ID: {patientId}</Badge>}
       </div>
 
       {error && (
-        <Alert
-          variant="danger"
-          dismissible
-          onClose={() => setError("")}
-        >
+        <Alert variant="danger" dismissible onClose={() => setError("")}>
           {error}
         </Alert>
       )}
 
       {success && (
-        <Alert
-          variant="success"
-          dismissible
-          onClose={() => setSuccess("")}
-        >
+        <Alert variant="success" dismissible onClose={() => setSuccess("")}>
           {success}
         </Alert>
       )}
@@ -1037,7 +915,7 @@ const CreateConsultation = () => {
                   type="button"
                   variant="danger"
                   onClick={startVoiceRecording}
-                  disabled={saving || processingOcr || generatingAi}
+                  disabled={busy}
                 >
                   <FaMicrophone className="me-2" />
                   Record Voice
@@ -1062,9 +940,16 @@ const CreateConsultation = () => {
 
             {recording && (
               <Alert variant="warning">
-                Your microphone is recording. Speak for 5–10 seconds, then
-                click Stop Recording.
+                Your microphone is recording. Speak for 5–10 seconds, then click
+                Stop Recording.
               </Alert>
+            )}
+
+            {transcribing && (
+              <div className="mb-3">
+                <Spinner size="sm" animation="border" className="me-2" />
+                Transcribing audio...
+              </div>
             )}
 
             {hasRecordedAudio && recordedAudioUrl && (
@@ -1109,7 +994,7 @@ const CreateConsultation = () => {
                       variant="outline-danger"
                       size="sm"
                       onClick={deleteRecordedAudio}
-                      disabled={saving}
+                      disabled={saving || transcribing}
                     >
                       Delete Recording
                     </Button>
@@ -1159,7 +1044,7 @@ const CreateConsultation = () => {
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
-                disabled={processingOcr || saving || generatingAi || recording}
+                disabled={busy || recording}
               />
 
               <Form.Text className="text-muted">
@@ -1201,8 +1086,8 @@ const CreateConsultation = () => {
           <Card.Body className="p-4">
             <p className="text-secondary">
               Generate a structured draft from the symptoms, clinical notes,
-              voice transcription, and OCR text. The AI output is a draft,
-              not a confirmed diagnosis or treatment plan.
+              voice transcription, and OCR text. The AI output is a draft, not a
+              confirmed diagnosis or treatment plan.
             </p>
 
             <Button
@@ -1210,9 +1095,7 @@ const CreateConsultation = () => {
               variant="info"
               className="mb-3"
               onClick={generateAiDraft}
-              disabled={
-                generatingAi || saving || recording || processingOcr
-              }
+              disabled={busy || recording}
             >
               {generatingAi ? (
                 <>
@@ -1271,9 +1154,7 @@ const CreateConsultation = () => {
           <Button
             type="submit"
             variant="primary"
-            disabled={
-              saving || recording || processingOcr || generatingAi
-            }
+            disabled={busy || recording}
           >
             {saving ? (
               <>

@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@huggingface/transformers": "^4.3.2",
     "axios": "^1.21.0",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.2",
