@@ -2,6 +2,12 @@ const mongoose = require("mongoose");
 
 const consultationSchema = new mongoose.Schema(
   {
+    syncId: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true,
+    },
     patientId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Patient",

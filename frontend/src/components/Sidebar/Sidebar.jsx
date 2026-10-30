@@ -8,26 +8,79 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 import "./Sidebar.css";
 
 function Sidebar() {
-
   const [menuOpen, setMenuOpen] = useState(false);
 
   // ================= MENU ITEMS =================
   const menuItems = [
-    { path: "/admin/dashboard", icon: "bi-speedometer2", label: "Dashboard" },
-    { path: "/patients", icon: "bi-people", label: "Patients" },
-    { path: "/doctors", icon: "bi-person-badge", label: "Doctors" },
-    { path: "/ai-analysis", icon: "bi-robot", label: "AI Analysis" },
-    { path: "/medical-reports", icon: "bi-file-earmark-medical", label: "Medical Reports" },
-    { path: "/appointments", icon: "bi-calendar-check", label: "Appointments" },
-    { path: "/ai-assistant", icon: "bi-chat-dots", label: "AI Assistant" },
-    { path: "/medicines", icon: "bi-capsule", label: "Medicines" },
-    { path: "/analytics", icon: "bi-bar-chart-line", label: "Analytics" },
+    {
+      path: "/admin/dashboard",
+      icon: "bi-speedometer2",
+      label: "Dashboard",
+    },
+    {
+      path: "/patients",
+      icon: "bi-people",
+      label: "Patients",
+    },
+    {
+      path: "/doctors",
+      icon: "bi-person-badge",
+      label: "Doctors",
+    },
+    {
+      path: "/consultations",
+      icon: "bi-journal-medical",
+      label: "Consultations",
+    },
+    {
+      path: "/sync-operations",
+      icon: "bi-arrow-repeat",
+      label: "Sync Operations",
+    },
+    {
+      path: "/ai-analysis",
+      icon: "bi-robot",
+      label: "AI Analysis",
+    },
+    {
+      path: "/medical-reports",
+      icon: "bi-file-earmark-medical",
+      label: "Medical Reports",
+    },
+    {
+      path: "/appointments",
+      icon: "bi-calendar-check",
+      label: "Appointments",
+    },
+    {
+      path: "/ai-assistant",
+      icon: "bi-chat-dots",
+      label: "AI Assistant",
+    },
+    {
+      path: "/medicines",
+      icon: "bi-capsule",
+      label: "Medicines",
+    },
+    {
+      path: "/analytics",
+      icon: "bi-bar-chart-line",
+      label: "Analytics",
+    },
   ];
 
   // ================= ACCOUNT ITEMS =================
   const accountItems = [
-    { path: "/profile", icon: "bi-person-circle", label: "Profile" },
-    { path: "/settings", icon: "bi-gear", label: "Settings" },
+    {
+      path: "/profile",
+      icon: "bi-person-circle",
+      label: "Profile",
+    },
+    {
+      path: "/settings",
+      icon: "bi-gear",
+      label: "Settings",
+    },
   ];
 
   // ================= MENU LINK =================
@@ -38,7 +91,11 @@ function Sidebar() {
           key={item.path}
           as={NavLink}
           to={item.path}
-          end={item.path === "/admin/dashboard"}
+          end={
+            item.path === "/admin/dashboard" ||
+            item.path === "/patients" ||
+            item.path === "/consultations"
+          }
           onClick={() => setMenuOpen(false)}
           className="sidebar-link border-0 rounded-3 mb-1 px-3 py-2"
         >
@@ -69,8 +126,11 @@ function Sidebar() {
       )}
 
       {/* SIDEBAR */}
-      <div className={`sidebar d-flex flex-column ${menuOpen ? "show" : ""}`}>
-
+      <div
+        className={`sidebar d-flex flex-column ${
+          menuOpen ? "show" : ""
+        }`}
+      >
         {/* LOGO */}
         <div className="px-3 py-4 d-flex align-items-center gap-2">
           <div className="sidebar-logo">
@@ -78,9 +138,7 @@ function Sidebar() {
           </div>
 
           <div>
-            <h5 className="mb-0 fw-bold sidebar-brand">
-              MediAI
-            </h5>
+            <h5 className="mb-0 fw-bold sidebar-brand">MediAI</h5>
             <small className="text-secondary">
               Healthcare Intelligence
             </small>
@@ -100,7 +158,6 @@ function Sidebar() {
 
         {/* NAVIGATION */}
         <div className="flex-grow-1 overflow-auto px-3 py-3 main-menu">
-
           <div className="text-uppercase fw-semibold mb-2 px-2 sidebar-heading">
             Main Menu
           </div>
@@ -116,7 +173,6 @@ function Sidebar() {
 
           {/* AI CARD */}
           <div className="mt-4 p-3 rounded-4 ai-sidebar-card">
-
             <i className="bi bi-stars fs-4"></i>
 
             <h6 className="fw-bold mt-2 mb-1">
@@ -135,18 +191,19 @@ function Sidebar() {
               Explore AI
               <i className="bi bi-arrow-right ms-1"></i>
             </NavLink>
-
           </div>
         </div>
 
         {/* FOOTER */}
         <div className="p-3 border-top sidebar-footer">
           <div className="d-flex align-items-center gap-2">
-
             <i className="bi bi-shield-check fs-4 text-success"></i>
 
             <div>
-              <div className="fw-semibold" style={{ fontSize: "12px" }}>
+              <div
+                className="fw-semibold"
+                style={{ fontSize: "12px" }}
+              >
                 Secure Healthcare
               </div>
 
@@ -154,10 +211,8 @@ function Sidebar() {
                 Medical data protection
               </small>
             </div>
-
           </div>
         </div>
-
       </div>
     </>
   );

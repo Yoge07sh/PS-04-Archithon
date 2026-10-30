@@ -8,7 +8,7 @@ const syncOperationSchema = new mongoose.Schema(
       unique: true,
       trim: true,
     },
- 
+
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -53,7 +53,7 @@ const syncOperationSchema = new mongoose.Schema(
       type: String,
       enum: ["pending", "processing", "synced", "conflict", "failed"],
       default: "pending",
-    }, 
+    },
 
     retryCount: {
       type: Number,

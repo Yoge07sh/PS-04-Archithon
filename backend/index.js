@@ -11,11 +11,12 @@ const createAdmin = require("./createAdmin");
 
 const authRoutes = require("./routes/authRoutes");
 const patientRoutes = require("./routes/patientRoutes");
-
+const consultationRoutes = require("./routes/consultationRoutes");
+const syncRoutes = require("./routes/syncRoutes");
 // Middleware
 app.use(
   cors({
-    origin: ["http://51.21.170.83:5173", "http://51.21.170.83:4173"],
+    origin: ["http://localhost:5173", "http://localhost:4173"],
     credentials: true,
   }),
 );
@@ -30,6 +31,8 @@ createAdmin();
 // Routes
 app.use(authRoutes);
 app.use(patientRoutes);
+app.use(consultationRoutes);
+app.use(syncRoutes);
 
 app.listen(3000, (err) => {
   if (err) {
