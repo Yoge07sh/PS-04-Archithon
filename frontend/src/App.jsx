@@ -8,11 +8,16 @@ import AddPatient from "./pages/patients/AddPatient";
 import PatientList from "./pages/patients/PatientList.jsx";
 import Login from "./pages/LoginSignupPages/Login.jsx";
 import EditPatient from "./pages/patients/EditPatient.jsx";
+import Register from "./pages/LoginSignupPages/Register.jsx";
+import { usePatientSync } from "./hooks/usePatientSync.js";
 function App() {
+  usePatientSync();
+
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<Login />} />
         <Route
           path="*"
           element={

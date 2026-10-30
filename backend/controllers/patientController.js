@@ -96,7 +96,6 @@ const getPatients = async (req, res) => {
   }
 };
 
-
 const deletePatient = async (req, res) => {
   try {
     const { id } = req.params;
@@ -193,9 +192,6 @@ const editPatientById = async (req, res) => {
   }
 };
 
-
-
-
 const getPatientForEdit = async (req, res) => {
   try {
     const { id } = req.params;
@@ -235,6 +231,84 @@ const getPatientForEdit = async (req, res) => {
   }
 };
 
+const syncOfflinePatient = async (req, res) => {
+  try {
+    const {
+      syncId,
+      firstName,
+      lastName,
+      dateOfBirth,
+      gender,
+      contactNumber,
+      address,
+    } = req.body;
+
+    if (!syncId || !firstName?.trim() || !lastName?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "syncId, firstName, and lastName are required.",
+      });
+    }
+
+    // Check whether this offline patient was already synchronized.
+    const existingPatient = await Patient.findOne({
+      syncId,
+      createdBy: req.user.id,
+    });
+
+    if (existingPatient) {
+      return res.status(200).json({
+        success: true,
+        message: "Patient was already synchronized.",
+        patient: existingPatient,
+      });
+    }
+
+    const patient = await Patient.create({
+      syncId,
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      dateOfBirth: dateOfBirth || undefined,
+      gender: gender?.trim().toLowerCase() || "undisclosed",
+      contactNumber: contactNumber?.trim() || "",
+      address: address?.trim() || "",
+      createdBy: req.user.id,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Offline patient synchronized successfully.",
+      patient,
+    });
+  } catch (err) {
+    // A concurrent retry may have created the same syncId.
+    if (err.code === 11000 && req.body.syncId) {
+      try {
+        const existingPatient = await Patient.findOne({
+          syncId: req.body.syncId,
+          createdBy: req.user.id,
+        });
+
+        if (existingPatient) {
+          return res.status(200).json({
+            success: true,
+            message: "Patient was already synchronized.",
+            patient: existingPatient,
+          });
+        }
+      } catch (lookupError) {
+        console.error("Sync duplicate lookup error:", lookupError);
+      }
+    }
+
+    console.error("Offline patient sync error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to synchronize patient.",
+    });
+  }
+};
 
 module.exports = {
   addPatient,
@@ -242,4 +316,5 @@ module.exports = {
   deletePatient,
   editPatientById,
   getPatientForEdit,
+  syncOfflinePatient,
 };

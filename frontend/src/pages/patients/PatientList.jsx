@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-
+import {
+  savePatientsLocally,
+  getLocalPatients,
+} from "../../db/patientStorage.js";
 import {
   Container,
   Row,
@@ -44,12 +47,13 @@ function PatientList() {
 
   // Fetch patients
   const fetchPatients = async () => {
-    try {
-      setLoading(true);
-      setError("");
+    setLoading(true);
+    setError("");
 
+    try {
       const response = await axios.get(`${apiUrl}/patients`, {
         withCredentials: true,
+        timeout: 10000,
       });
 
       const patientData = Array.isArray(response.data)
@@ -60,24 +64,55 @@ function PatientList() {
         throw new Error("Invalid patient data received from server.");
       }
 
+      // Save the latest server records locally
+      await savePatientsLocally(patientData);
+
+      // Display the server records
       setPatients(patientData);
     } catch (err) {
-      console.error("Error fetching patients:", err);
+      console.error("Unable to fetch patients from backend:", err);
 
-      setError(
-        err.response?.data?.message ||
-          err.message ||
-          "Unable to load patients. Please try again.",
-      );
+      try {
+        // Fall back to previously saved local records
+        const localPatients = await getLocalPatients();
+
+        setPatients(localPatients);
+
+        if (localPatients.length > 0) {
+          setError(
+            "You are offline. Showing previously saved patient records.",
+          );
+        } else {
+          setError(
+            "Unable to connect to the backend. No locally saved patient records are available.",
+          );
+        }
+      } catch (localError) {
+        console.error("Unable to read local patients:", localError);
+
+        setPatients([]);
+        setError(
+          "Unable to load patient records from the server or local storage.",
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
-
+  
   useEffect(() => {
     fetchPatients();
-  }, []);
 
+    const handlePatientsSynced = () => {
+      fetchPatients();
+    };
+
+    window.addEventListener("patients-synced", handlePatientsSynced);
+
+    return () => {
+      window.removeEventListener("patients-synced", handlePatientsSynced);
+    };
+  }, []);
   // Frontend search
   const filteredPatients = useMemo(() => {
     const searchText = search.trim().toLowerCase();

@@ -22,4 +22,9 @@ router.delete("/delete-patient/:id", authMiddleware, (req, res) => {
 router.put("/edit/patient/:id", authMiddleware, (req, res) => {
   patientController.editPatientById(req, res);
 });
+
+router.post("/sync/patient", authMiddleware, (req, res) => {
+  patientController.syncOfflinePatient(req, res);
+});
+
 module.exports = router;

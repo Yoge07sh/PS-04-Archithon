@@ -2,7 +2,12 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import axios from "axios";
-
+import {
+  savePatientsLocally,
+  getLocalPatients,
+  updatePatientLocally,
+} from "../../db/patientStorage";
+import { db } from "../../db/localDB";
 import {
   Container,
   Row,
@@ -49,22 +54,73 @@ const EditPatient = () => {
         setLoading(true);
         setError("");
 
-        const response = await axios.get(`${apiUrl}/get/patientforEdit/${id}`, {
-          withCredentials: true,
-        });
-        const data = response.data.patient || response.data;
+        try {
+          const response = await axios.get(
+            `${apiUrl}/get/patientforEdit/${id}`,
+            {
+              withCredentials: true,
+              timeout: 10000,
+            },
+          );
 
-        setPatient({
-          firstName: data.firstName || "",
-          lastName: data.lastName || "",
-          dateOfBirth: data.dateOfBirth
-            ? new Date(data.dateOfBirth).toISOString().split("T")[0]
-            : "",
-          gender: data.gender || "undisclosed",
-          contactNumber: data.contactNumber || "",
-          address: data.address || "",
-        });
+          const data =
+            response.data?.patient ??
+            response.data?.data?.patient ??
+            response.data?.data ??
+            response.data;
+
+          if (!data?._id) {
+            throw new Error("Patient details were not returned by the server.");
+          }
+
+          await savePatientsLocally([
+            {
+              ...data,
+              _id: String(data._id),
+            },
+          ]);
+
+          setPatient({
+            firstName: data.firstName || "",
+            lastName: data.lastName || "",
+            dateOfBirth: data.dateOfBirth
+              ? String(data.dateOfBirth).slice(0, 10)
+              : "",
+            gender: data.gender || "undisclosed",
+            contactNumber: data.contactNumber || "",
+            address: data.address || "",
+          });
+        } catch (networkError) {
+          if (networkError.response) {
+            throw networkError;
+          }
+
+          const localPatient = await db.patients.get(String(id));
+
+          if (!localPatient) {
+            throw new Error(
+              "Patient is not available offline. Connect to the internet and try again.",
+            );
+          }
+
+          setPatient({
+            firstName: localPatient.firstName || "",
+            lastName: localPatient.lastName || "",
+            dateOfBirth: localPatient.dateOfBirth
+              ? String(localPatient.dateOfBirth).slice(0, 10)
+              : "",
+            gender: localPatient.gender || "undisclosed",
+            contactNumber: localPatient.contactNumber || "",
+            address: localPatient.address || "",
+          });
+
+          setError(
+            "You are offline. Changes will be saved locally and synchronized when the internet returns.",
+          );
+        }
       } catch (err) {
+        console.error("Error fetching patient:", err);
+
         setError(
           err.response?.data?.message ||
             err.message ||
@@ -76,7 +132,10 @@ const EditPatient = () => {
     };
 
     if (id) {
-      fetchPatient();
+      fetchPatient(); // This call was missing!
+    } else {
+      setError("Patient ID is missing.");
+      setLoading(false);
     }
   }, [id]);
 
@@ -97,26 +156,59 @@ const EditPatient = () => {
       setError("");
 
       const patientData = {
-        ...patient,
         firstName: patient.firstName.trim(),
         lastName: patient.lastName.trim(),
-        gender: patient.gender || "undisclosed",
         dateOfBirth: patient.dateOfBirth || undefined,
+        gender: patient.gender || "undisclosed",
         contactNumber: patient.contactNumber.trim(),
         address: patient.address.trim(),
       };
 
-      const response = await axios.put(
-        `${apiUrl}/edit/patient/${id}`,
-        patientData,
-        {
-          withCredentials: true,
-        },
-      );
+      try {
+        // Attempt to update the patient on the server.
+        const response = await axios.put(
+          `${apiUrl}/edit/patient/${id}`,
+          patientData,
+          {
+            withCredentials: true,
+            timeout: 10000,
+          },
+        );
 
-      alert(response.data.message || "Patient updated successfully!");
+        const serverPatient =
+          response.data.patient || response.data.data?.patient;
 
-      navigate("/patients");
+        // Keep IndexedDB updated with the server's saved version.
+        const existingPatient = await db.patients.get(String(id));
+
+        await savePatientsLocally([
+          {
+            ...(existingPatient || {}),
+            ...(serverPatient || {}),
+            ...patientData,
+            _id: String(serverPatient?._id || id),
+            syncStatus: "synced",
+          },
+        ]);
+
+        alert(response.data.message || "Patient updated successfully!");
+        navigate("/patientList");
+      } catch (requestError) {
+        // If the server responded, this is an HTTP/API error,
+        // not an offline network failure.
+        if (requestError.response) {
+          throw requestError;
+        }
+
+        // Network failure: save the edit in IndexedDB.
+        await updatePatientLocally(String(id), patientData);
+
+        alert(
+          "Internet unavailable. Changes saved locally and will synchronize when you reconnect.",
+        );
+
+        navigate("/patients");
+      }
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -127,7 +219,6 @@ const EditPatient = () => {
       setUpdating(false);
     }
   };
-
   if (loading) {
     return (
       <Container fluid className="bg-light min-vh-100 p-4">
@@ -163,7 +254,7 @@ const EditPatient = () => {
           <Button
             variant="outline-secondary"
             className="rounded-3 px-4"
-            onClick={() => navigate("/patientList")}
+            onClick={() => navigate("/patients")}
             disabled={updating}
           >
             <i className="bi bi-arrow-left me-2"></i>

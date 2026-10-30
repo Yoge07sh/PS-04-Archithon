@@ -2,7 +2,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-
+import { addPatientLocally, savePatientsLocally } from "../../db/patientStorage";
 import {
   Container,
   Row,
@@ -61,19 +61,58 @@ const AddPatient = () => {
         firstName: patient.firstName.trim(),
         lastName: patient.lastName.trim(),
         gender: patient.gender || "undisclosed",
-        dateOfBirth: patient.dateOfBirth || undefined,
+        dateOfBirth: patient.dateOfBirth || null,
         contactNumber: patient.contactNumber.trim(),
         address: patient.address.trim(),
       };
 
-      const response = await axios.post(`${apiUrl}/add/patient`, patientData, {
-        withCredentials: true,
-      });
+      try {
+        // First, try saving the patient to the backend.
+        const response = await axios.post(
+          `${apiUrl}/add/patient`,
+          patientData,
+          {
+            withCredentials: true,
+            timeout: 10000,
+          },
+        );
 
-      alert(response.data.message || "Patient added successfully!");
+        // Extract the created patient from the API response.
+        const responseData = response.data;
 
-      setPatient({ ...initialPatient });
-      navigate("/admin/patients");
+        const savedPatient =
+          responseData.patient ??
+          responseData.data?.patient ??
+          responseData.data;
+
+        // Save the server-generated patient record locally.
+        if (savedPatient?._id) {
+          await savePatientsLocally([savedPatient]);
+        }
+
+        alert(responseData.message || "Patient added successfully!");
+
+        setPatient({ ...initialPatient });
+        navigate("/admin/patients");
+      } catch (apiError) {
+        // If the backend is unavailable, save locally.
+        if (!apiError.response) {
+          const localPatient = await addPatientLocally(patientData);
+
+          console.log("Patient saved locally:", localPatient);
+
+          alert(
+            "Internet unavailable. Patient saved locally and is pending synchronization.",
+          );
+
+          setPatient({ ...initialPatient });
+          navigate("/admin/patients");
+          return;
+        }
+
+        // The backend responded with an error, such as validation failure.
+        throw apiError;
+      }
     } catch (err) {
       console.error("Error adding patient:", err);
       console.error("Response data:", err.response?.data);
