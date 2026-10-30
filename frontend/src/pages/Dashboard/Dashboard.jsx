@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import React from "react";
+//import React from 'react'
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
@@ -7,7 +7,10 @@ const apiUrl = import.meta.env.VITE_API_URL;
 
 function Dashboard() {
   const [totalPatients, setTotalPatients] = useState(0);
+  const [totalConsultations, setTotalConsultations] = useState(0);
   const [recentPatients, setRecentPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const navigate = useNavigate();
   const formatDate = (date) => {
     if (!date) return "—";
@@ -27,67 +30,77 @@ function Dashboard() {
   const stats = [
     {
       title: "Total Patients",
-      value: totalPatients.toLocaleString("en-IN"),
+      value: loading ? "..." : totalPatients.toLocaleString("en-IN"),
       icon: "bi-people",
       bg: "bg-primary-subtle",
       color: "text-primary",
-      change: "+12% this month",
+      change: "Registered patients",
     },
-    // {
-    //   title: "Total Doctors",
-    //   value: "48",
-    //   icon: "bi-person-badge",
-    //   bg: "bg-success-subtle",
-    //   color: "text-success",
-    //   change: "+5 new doctors",
-    // },
     {
-      title: "Consultantion",
-      value: "320",
+      title: "Total Consultations",
+      value: loading ? "..." : totalConsultations.toLocaleString("en-IN"),
       icon: "bi-calendar-check",
       bg: "bg-warning-subtle",
       color: "text-warning",
-      change: "Today",
+      change: "Total consultations recorded",
     },
-    // {
-    //   title: "AI Reports",
-    //   value: "186",
-    //   icon: "bi-robot",
-    //   bg: "bg-info-subtle",
-    //   color: "text-info",
-    //   change: "+18% this week",
-    // },
   ];
 
   useEffect(() => {
-    // Total Patients
-    axios({
-      url: apiUrl + "/patients",
-      method: "GET",
-      withCredentials: true,
-    })
-      .then((res) => {
-        setTotalPatients(Number(res.data.totalPatients) || 0);
-      })
-      .catch((err) => {
-        console.log("Total Patients Error:", err.response?.data || err.message);
-      });
+    const fetchDashboardData = async () => {
+      try {
+        // Total Patients
+        const patientResponse = await axios.get(`${apiUrl}/patients`, {
+          withCredentials: true,
+        });
 
-    // Recent 4 Patients
-    axios({
-      url: apiUrl + "/patients/recent",
-      method: "GET",
-      withCredentials: true,
-    })
-      .then((res) => {
-        setRecentPatients(res.data.data || []);
-      })
-      .catch((err) => {
-        console.log(
-          "Recent Patients Error:",
-          err.response?.data || err.message,
+        const patientData = patientResponse.data;
+
+        setTotalPatients(
+          Number(
+            patientData.totalPatients ?? patientData.data?.totalPatients ?? 0,
+          ),
         );
-      });
+
+        // Recent Patients
+        const recentResponse = await axios.get(`${apiUrl}/patients/recent`, {
+          withCredentials: true,
+        });
+
+        setRecentPatients(recentResponse.data.data || []);
+
+        // Total Consultations
+        const consultationResponse = await axios.get(
+          `${apiUrl}/consultations`,
+          {
+            withCredentials: true,
+          },
+        );
+
+        const consultationData = consultationResponse.data;
+
+        const consultations = Array.isArray(consultationData)
+          ? consultationData
+          : (consultationData.consultations ?? consultationData.data ?? []);
+
+        const total =
+          consultationData.totalConsultations ??
+          consultationData.total ??
+          consultationData.pagination?.total ??
+          consultations.length;
+
+        setTotalConsultations(Number(total) || 0);
+      } catch (error) {
+        console.error(
+          "Dashboard API Error:",
+          error.response?.data || error.message,
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
   }, []);
 
   return (

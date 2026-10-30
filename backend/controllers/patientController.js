@@ -30,6 +30,7 @@ const addPatient = async (req, res) => {
 
 const getPatients = async (req, res) => {
   try {
+    const totalPatients = await Patient.countDocuments({});
     const search = (req.query.search || "").trim();
 
     // Exclude archived patients
@@ -84,6 +85,7 @@ const getPatients = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      totalPatients,
       data: patients,
     });
   } catch (err) {

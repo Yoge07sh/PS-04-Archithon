@@ -26,7 +26,6 @@ import {
 
 import { createWorker } from "tesseract.js";
 import { addConsultationLocally } from "../../db/consultationStorage";
-import { transcribeBlob } from "../../utils/browserWhisper";
 
 const apiUrl = import.meta.env.VITE_API_URL;
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024;
