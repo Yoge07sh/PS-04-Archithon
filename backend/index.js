@@ -15,7 +15,7 @@ const patientRoutes = require("./routes/patientRoutes");
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:4173"],
+    origin: ["http://51.21.170.83:5173", "http://51.21.170.83:4173"],
     credentials: true,
   }),
 );
