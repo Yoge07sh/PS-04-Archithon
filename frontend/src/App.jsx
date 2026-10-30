@@ -1,7 +1,8 @@
 function App() {
-  return(
-    <h1>hlo</h1>
-  )
+  return( <BrowseRouter>
+
+  </BrowseRouter>
+  );
 }
 
-export default App
+export default App;
