@@ -12,12 +12,13 @@ import {
   InputGroup,
 } from "react-bootstrap";
 import { Eye, EyeOff } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
 function Register() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -402,7 +403,7 @@ function Register() {
               <span className="text-secondary small">Already Registered?</span>
 
               <Link
-                to="/"
+                to="/login"
                 className="text-decoration-none fw-bold small ms-2"
                 style={{ color: "#15803d" }}
               >
@@ -455,7 +456,13 @@ function Register() {
         <Modal.Footer>
           <Button
             variant={modalType === "success" ? "success" : "warning"}
-            onClick={() => setShowModal(false)}
+            onClick={() => {
+              setShowModal(false);
+
+              if (modalType === "success") {
+                navigate("/login");
+              }
+            }}
           >
             OK
           </Button>
