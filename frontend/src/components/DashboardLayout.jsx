@@ -1,6 +1,6 @@
 import { Outlet } from "react-router-dom";
-import Navbar from "../components/NavBar/Navbar.jsx";
-import Sidebar from "../components/Sidebar/sidebar.jsx";
+import Navbar from "./NavBar/Navbar.jsx";
+import Sidebar from "./Sidebar/Sidebar.jsx";
 
 const DashboardLayout = () => {
   return (
@@ -11,7 +11,6 @@ const DashboardLayout = () => {
         <Navbar />
 
         <main className="p-4">
-          
           <Outlet />
         </main>
       </div>
