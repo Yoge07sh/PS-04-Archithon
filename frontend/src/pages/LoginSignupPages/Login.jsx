@@ -1,4 +1,5 @@
 import "bootstrap/dist/css/bootstrap.min.css";
+import { Eye, EyeOff } from "lucide-react";
 import { useState } from "react";
 import {
   Container,
@@ -19,6 +20,7 @@ import { Link, useNavigate } from "react-router-dom";
 const apiUrl = import.meta.env.VITE_API_URL;
 
 const Login = () => {
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
@@ -100,47 +102,75 @@ const Login = () => {
       >
         <Row
           className="w-100 shadow-lg rounded-4 overflow-hidden bg-white"
-          style={{ maxWidth: "950px" }}
+          style={{
+            maxWidth: "750px",
+            minHeight: "420px",
+            border: "1px solid #e9ecef",
+          }}
         >
           {/* Left Side */}
           <Col
             md={6}
-            className="bg-primary text-white d-flex flex-column justify-content-center align-items-center text-center p-5"
+            className="text-white d-flex flex-column justify-content-center align-items-center text-center p-4"
+            style={{
+              background: "linear-gradient(145deg,  #0f766e, #0891b2)",
+            }}
           >
-            <FaUserCircle size={85} className="mb-4" />
+            <div
+              className="rounded-circle d-flex align-items-center justify-content-center mb-3"
+              style={{
+                width: "75px",
+                height: "75px",
+                background: "rgba(255,255,255,0.18)",
+                border: "1px solid rgba(255,255,255,0.3)",
+              }}
+            >
+              <FaUserCircle size={43} />
+            </div>
 
-            <h1 className="fw-bold mb-3">Welcome Back!</h1>
+            <h2 className="fw-bold mb-2">Welcome Back!</h2>
 
-            <p className="fs-5 mb-4">
+            <p className="mb-4" style={{ fontSize: "14px", lineHeight: "1.7" }}>
               Manage your account easily and securely. Login to continue your
               journey with us.
             </p>
 
-            <div className="border border-white rounded-pill px-4 py-2">
-              <span className="fw-semibold">Secure Login Portal</span>
+            <div
+              className="rounded-pill px-3 py-2"
+              style={{
+                background: "rgba(255,255,255,0.15)",
+                border: "1px solid rgba(255,255,255,0.35)",
+              }}
+            >
+              <i className="bi bi-shield-check me-2"></i>
+              <span className="fw-semibold small">Secure Login Portal</span>
             </div>
           </Col>
 
           {/* Right Side */}
-          <Col md={6} className="p-4 p-lg-5">
-            <div className="text-center mb-4">
-              <h2 className="fw-bold text-primary">Login</h2>
-
-              <p className="text-secondary">
+          <Col md={6} className="d-flex flex-column justify-content-center p-4">
+            <div className="text-center mb-3">
+              <h3 className="fw-bold mb-1" style={{ color: " #0891b2" }}>
+                Login
+              </h3>
+              <p className="text-secondary small mb-0">
                 Enter your credentials to access your account
               </p>
             </div>
 
             <Form onSubmit={handleLogin}>
-              <Form.Group className="mb-4">
-                <Form.Label className="fw-semibold">Email Address</Form.Label>
+              <Form.Group className="mb-3">
+                <Form.Label className="fw-semibold small mb-1">
+                  Email Address
+                </Form.Label>
 
-                <InputGroup size="lg">
-                  <InputGroup.Text className="bg-light text-primary">
-                    <FaEnvelope />
+                <InputGroup size="sm">
+                  <InputGroup.Text className="bg-light text-primary border-end-0">
+                    <FaEnvelope style={{ color: " #0891b2" }} />
                   </InputGroup.Text>
 
                   <Form.Control
+                    className="bg-light border-start-0 shadow-none"
                     type="email"
                     placeholder="Enter your email"
                     value={email}
@@ -150,28 +180,39 @@ const Login = () => {
                 </InputGroup>
               </Form.Group>
 
-              <Form.Group className="mb-3">
-                <Form.Label className="fw-semibold">Password</Form.Label>
+              <Form.Group className="mb-2">
+                <Form.Label className="fw-semibold small mb-1">
+                  Password
+                </Form.Label>
 
-                <InputGroup size="lg">
-                  <InputGroup.Text className="bg-light text-primary">
-                    <FaLock />
+                <InputGroup size="sm">
+                  <InputGroup.Text className="bg-light border-end-0">
+                    <FaLock style={{ color: "#0891b2" }} />
                   </InputGroup.Text>
 
                   <Form.Control
-                    type="password"
+                    className="bg-light border-start-0 border-end-0 shadow-none"
+                    type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
+
+                  <InputGroup.Text
+                    className="bg-light"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </InputGroup.Text>
                 </InputGroup>
               </Form.Group>
 
-              <div className="text-end mb-4">
+              <div className="text-end mb-3">
                 <Link
-                  to="/forgot-password"
-                  className="text-primary text-decoration-none fw-semibold"
+                  to="/"
+                  className="text-primary text-decoration-none small fw-semibold"
                 >
                   Forgot Password?
                 </Link>
@@ -179,10 +220,12 @@ const Login = () => {
 
               <Button
                 type="submit"
-                variant="primary"
-                size="lg"
-                className="w-100 rounded-3 fw-bold"
+                size="sm"
+                className="w-100 rounded-2 fw-bold py-2 shadow-sm"
                 disabled={loading}
+                style={{
+                  background: "linear-gradient(145deg,  #0f766e, #0891b2)",
+                }}
               >
                 {loading ? (
                   <>
@@ -197,44 +240,89 @@ const Login = () => {
               </Button>
             </Form>
 
-            <div className="text-center mt-4">
-              <span className="text-secondary">Don't have an account?</span>
+            <div className="text-center mt-3">
+              <span className="text-secondary small">
+                Don't have an account?
+              </span>
 
               <Link
                 to="/register"
-                className="text-primary text-decoration-none fw-bold ms-2"
+                className="text-primary text-decoration-none fw-bold small ms-2"
               >
                 Sign Up
               </Link>
             </div>
 
-            <hr className="my-4" />
+            <hr className="my-3" />
 
-            <p className="text-center text-secondary small mb-0">
-              © 2026 All Rights Reserved
+            <p
+              className="text-center text-secondary mb-0"
+              style={{ fontSize: "11px" }}
+            >
+              <i className="bi bi-shield-lock me-1"></i>© 2026 All Rights
+              Reserved
             </p>
           </Col>
         </Row>
       </Container>
 
       {/* Login Response Modal */}
-      <Modal show={showModal} onHide={handleModalClose} centered>
-        <Modal.Header closeButton>
-          <Modal.Title className={isSuccess ? "text-success" : "text-danger"}>
-            {modalTitle}
-          </Modal.Title>
-        </Modal.Header>
+      {/* Login Response Modal */}
+      <Modal
+        show={showModal}
+        onHide={handleModalClose}
+        centered
+        backdrop="static"
+      >
+        <Modal.Header closeButton className="border-0 pb-0" />
 
-        <Modal.Body className="text-center py-4">{modalMessage}</Modal.Body>
-
-        <Modal.Footer>
-          <Button
-            variant={isSuccess ? "success" : "primary"}
-            onClick={handleModalClose}
+        <Modal.Body className="text-center px-4 pt-2 pb-4">
+          {/* Success / Error Icon */}
+          <div
+            className="rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3"
+            style={{
+              width: "75px",
+              height: "75px",
+              background: isSuccess ? "#d1fae5" : "#fee2e2",
+            }}
           >
-            OK
+            <i
+              className={`bi ${
+                isSuccess ? "bi-check-circle-fill" : "bi-x-circle-fill"
+              }`}
+              style={{
+                fontSize: "42px",
+                color: isSuccess ? "#059669" : "#dc2626",
+              }}
+            ></i>
+          </div>
+
+          {/* Title */}
+          <h4
+            className="fw-bold mb-2"
+            style={{
+              color: isSuccess ? "#059669" : "#dc2626",
+            }}
+          >
+            {modalTitle}
+          </h4>
+
+          {/* Message */}
+          <p className="text-secondary mb-4" style={{ fontSize: "14px" }}>
+            {modalMessage}
+          </p>
+
+          {/* Button */}
+          <Button
+            onClick={handleModalClose}
+            className="rounded-pill px-5 py-2 fw-semibold border-0 shadow-sm"
+            style={{
+              background: "linear-gradient(145deg, #0f766e, #0891b2)",
+            }}
+          >
+            Continue <i className="bi bi-arrow-right ms-2"></i>
           </Button>
-        </Modal.Footer>
+        </Modal.Body>
       </Modal>
     </>
   );

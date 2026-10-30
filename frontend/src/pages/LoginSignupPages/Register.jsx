@@ -1,6 +1,5 @@
 import { useState } from "react";
 import axios from "axios";
-
 import {
   Container,
   Form,
@@ -10,10 +9,11 @@ import {
   Col,
   Modal,
   Spinner,
+  InputGroup,
 } from "react-bootstrap";
-
 import { Eye, EyeOff } from "lucide-react";
 import { Link } from "react-router-dom";
+import "bootstrap-icons/font/bootstrap-icons.css";
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -29,7 +29,6 @@ function Register() {
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
   const [loading, setLoading] = useState(false);
 
   const [showModal, setShowModal] = useState(false);
@@ -37,7 +36,6 @@ function Register() {
   const [modalTitle, setModalTitle] = useState("");
   const [modalType, setModalType] = useState("warning");
 
-  // Handle Input Change
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -47,7 +45,6 @@ function Register() {
     });
   };
 
-  // Show Modal
   const handleModal = (title, message, type = "warning") => {
     setModalTitle(title);
     setModalMessage(message);
@@ -55,23 +52,19 @@ function Register() {
     setShowModal(true);
   };
 
-  // Form Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // First Name Validation
     if (!/^[a-zA-Z ]+$/.test(formData.firstName.trim())) {
       handleModal("Invalid First Name", "Please enter a valid first name.");
       return;
     }
 
-    // Last Name Validation
     if (!/^[a-zA-Z ]+$/.test(formData.lastName.trim())) {
       handleModal("Invalid Last Name", "Please enter a valid last name.");
       return;
     }
 
-    // Email Validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
     if (!emailRegex.test(formData.email.trim())) {
@@ -79,7 +72,6 @@ function Register() {
       return;
     }
 
-    // Password Validation
     const passwordRegex =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
@@ -91,7 +83,6 @@ function Register() {
       return;
     }
 
-    // Confirm Password Validation
     if (formData.password !== formData.confirmPassword) {
       handleModal(
         "Password Mismatch",
@@ -100,7 +91,6 @@ function Register() {
       return;
     }
 
-    // Role Validation
     if (!formData.role) {
       handleModal("Role Required", "Please select Doctor or Nurse.");
       return;
@@ -109,20 +99,16 @@ function Register() {
     try {
       setLoading(true);
 
-      // Remove Confirm Password from API Data
       const { confirmPassword, ...registerData } = formData;
 
-      // Axios POST Request
       const response = await axios.post(`${apiUrl}/register`, registerData);
 
-      // Success Modal
       handleModal(
         "Registration Successful",
         response.data.message || "Your account has been created successfully!",
         "success",
       );
 
-      // Reset Form
       setFormData({
         firstName: "",
         lastName: "",
@@ -148,225 +134,296 @@ function Register() {
   return (
     <Container
       fluid
-      className="min-vh-100 d-flex justify-content-center align-items-center py-2"
-      style={{
-        background: "linear-gradient(135deg, #e0f2fe, #eef2ff)",
-      }}
+      className="min-vh-100 d-flex align-items-center justify-content-center p-3"
+      style={{ backgroundColor: "#f0f7f3" }}
     >
       <Card
-        className="border-0 shadow-lg w-100"
+        className="border-0 shadow-lg overflow-hidden w-100"
         style={{
-          maxWidth: "650px",
+          maxWidth: "1000px",
           borderRadius: "18px",
         }}
       >
-        <Card.Body className="px-4 py-3 px-md-5">
-          {/* Heading */}
-          <div className="text-center mb-3">
+        <Row className="g-0">
+          {/* Left Welcome Panel */}
+          <Col
+            md={5}
+            className="d-flex flex-column justify-content-center align-items-center text-center text-white p-4"
+            style={{
+              background: "linear-gradient(145deg,  #0f766e, #0891b2)",
+            }}
+          >
             <div
-              className="d-inline-flex justify-content-center align-items-center mb-2"
+              className="rounded-circle d-flex align-items-center justify-content-center mb-3"
               style={{
-                width: "52px",
-                height: "52px",
-                borderRadius: "50%",
-                background: "#e0e7ff",
-                color: "#4338ca",
-                fontSize: "24px",
+                width: "75px",
+                height: "75px",
+                backgroundColor: "rgba(255,255,255,0.15)",
+                border: "1px solid rgba(255,255,255,0.3)",
               }}
             >
-              <i className="bi bi-person-plus-fill"></i>
+              <i className="bi bi-heart-pulse-fill fs-1"></i>
             </div>
 
-            <h3 className="fw-bold mb-1" style={{ color: "#1e293b" }}>
-              Create Account
-            </h3>
+            <h3 className="fw-bold mb-2">Join Our Team</h3>
 
-            <p className="text-muted mb-0">Register as a Doctor or Nurse</p>
-          </div>
+            <p className="small mb-4" style={{ lineHeight: "1.8" }}>
+              Create your account and become a part of our healthcare management
+              platform.
+            </p>
 
-          <Form onSubmit={handleSubmit}>
-            {/* First Name and Last Name */}
-            <Row>
-              <Col md={6}>
-                <Form.Group className="mb-2">
-                  <Form.Label className="fw-semibold mb-1">
-                    First Name
-                  </Form.Label>
-
-                  <Form.Control
-                    type="text"
-                    name="firstName"
-                    placeholder="Enter first name"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    required
-                    className="py-2"
-                  />
-                </Form.Group>
-              </Col>
-
-              <Col md={6}>
-                <Form.Group className="mb-2">
-                  <Form.Label className="fw-semibold mb-1">
-                    Last Name
-                  </Form.Label>
-
-                  <Form.Control
-                    type="text"
-                    name="lastName"
-                    placeholder="Enter last name"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    required
-                    className="py-2"
-                  />
-                </Form.Group>
-              </Col>
-            </Row>
-
-            {/* Email */}
-            <Form.Group className="mb-2">
-              <Form.Label className="fw-semibold mb-1">
-                Email Address
-              </Form.Label>
-
-              <Form.Control
-                type="email"
-                name="email"
-                placeholder="example@gmail.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="py-2"
-              />
-            </Form.Group>
-
-            {/* Password */}
-            <Form.Group className="mb-2">
-              <Form.Label className="fw-semibold mb-1">Password</Form.Label>
-
-              <div className="position-relative">
-                <Form.Control
-                  type={showPassword ? "text" : "password"}
-                  name="password"
-                  placeholder="Enter password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  className="py-2 pe-5"
-                />
-
-                <span
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="position-absolute top-50 end-0 translate-middle-y me-3"
-                  style={{
-                    cursor: "pointer",
-                    color: "#64748b",
-                  }}
-                >
-                  {showPassword ? <EyeOff size={19} /> : <Eye size={19} />}
-                </span>
-              </div>
-
-              <Form.Text className="text-muted">
-                Min 8 characters, uppercase, lowercase, number and special
-                character.
-              </Form.Text>
-            </Form.Group>
-
-            {/* Confirm Password */}
-            <Form.Group className="mb-2">
-              <Form.Label className="fw-semibold mb-1">
-                Confirm Password
-              </Form.Label>
-
-              <div className="position-relative">
-                <Form.Control
-                  type={showConfirmPassword ? "text" : "password"}
-                  name="confirmPassword"
-                  placeholder="Confirm password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  required
-                  className="py-2 pe-5"
-                />
-
-                <span
-                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="position-absolute top-50 end-0 translate-middle-y me-3"
-                  style={{
-                    cursor: "pointer",
-                    color: "#64748b",
-                  }}
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff size={19} />
-                  ) : (
-                    <Eye size={19} />
-                  )}
-                </span>
-              </div>
-            </Form.Group>
-
-            {/* Role */}
-            <Form.Group className="mb-3">
-              <Form.Label className="fw-semibold mb-1">
-                Select Your Role
-              </Form.Label>
-
-              <Form.Select
-                name="role"
-                value={formData.role}
-                onChange={handleChange}
-                required
-                className="py-2"
-              >
-                <option value="">Select your role</option>
-                <option value="doctor">Doctor</option>
-                <option value="nurse">Nurse</option>
-              </Form.Select>
-            </Form.Group>
-
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              disabled={loading}
-              className="w-100 py-2 fw-semibold border-0"
+            <div
+              className="rounded-pill px-3 py-2"
               style={{
-                background: "#4338ca",
-                borderRadius: "8px",
+                backgroundColor: "rgba(255,255,255,0.12)",
+                border: "1px solid rgba(255,255,255,0.3)",
               }}
             >
-              {loading ? (
-                <>
-                  <Spinner size="sm" className="me-2" />
-                  Registering...
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-person-check-fill me-2"></i>
-                  Create Account
-                </>
-              )}
-            </Button>
-          </Form>
+              <i className="bi bi-shield-check me-2"></i>
+              <span className="small fw-semibold">Secure Registration</span>
+            </div>
 
-          {/* Login Link */}
-          <div className="text-center mt-3">
-            <span className="text-muted">Already Registered? </span>
+            <div className="mt-4 small text-white-50">
+              <i className="bi bi-hospital me-2"></i>
+              Medical AI Portal
+            </div>
+          </Col>
 
-            <Link
-              to="/login"
-              className="fw-semibold text-decoration-none"
-              style={{ color: "#4338ca" }}
+          {/* Right Registration Form */}
+          <Col md={7} className="px-4 py-2">
+            <div className="text-center mb-2">
+              <div
+                className="d-inline-flex align-items-center justify-content-center rounded-circle mb-2"
+                style={{
+                  width: "38px",
+                  height: "38px",
+                  backgroundColor: "#e8f5e9",
+                  color: "#15803d",
+                }}
+              >
+                <i className="bi bi-person-plus-fill fs-5"></i>
+              </div>
+
+              <h3 className="fw-bold mb-1" style={{ color: "#166534" }}>
+                Create Account
+              </h3>
+
+              <p className="text-secondary small mb-0">
+                Register as a Doctor or Nurse
+              </p>
+            </div>
+
+            <Form onSubmit={handleSubmit}>
+              {/* First Name and Last Name */}
+              <Row>
+                <Col xs={6}>
+                  <Form.Group className="mb-1">
+                    <Form.Label className="fw-semibold small mb-1">
+                      First Name
+                    </Form.Label>
+
+                    <Form.Control
+                      size="sm"
+                      type="text"
+                      name="firstName"
+                      placeholder="First name"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      required
+                      className="bg-light shadow-none"
+                    />
+                  </Form.Group>
+                </Col>
+
+                <Col xs={6}>
+                  <Form.Group className="mb-1">
+                    <Form.Label className="fw-semibold small mb-1">
+                      Last Name
+                    </Form.Label>
+
+                    <Form.Control
+                      size="sm"
+                      type="text"
+                      name="lastName"
+                      placeholder="Last name"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      required
+                      className="bg-light shadow-none"
+                    />
+                  </Form.Group>
+                </Col>
+              </Row>
+
+              {/* Email */}
+              <Form.Group className="mb-1">
+                <Form.Label className="fw-semibold small mb-1">
+                  Email Address
+                </Form.Label>
+
+                <InputGroup size="sm">
+                  <InputGroup.Text className="bg-light text-success">
+                    <i className="bi bi-envelope"></i>
+                  </InputGroup.Text>
+
+                  <Form.Control
+                    type="email"
+                    name="email"
+                    placeholder="example@gmail.com"
+                    value={formData.email}
+                    onChange={handleChange}
+                    required
+                    className="bg-light shadow-none"
+                  />
+                </InputGroup>
+              </Form.Group>
+
+              {/* Password */}
+              <Form.Group className="mb-1">
+                <Form.Label className="fw-semibold small mb-1">
+                  Password
+                </Form.Label>
+
+                <div className="position-relative">
+                  <Form.Control
+                    size="sm"
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    placeholder="Enter password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    className="bg-light pe-5 shadow-none"
+                  />
+
+                  <span
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="position-absolute top-50 end-0 translate-middle-y me-3"
+                    style={{ cursor: "pointer", color: "#64748b" }}
+                  >
+                    {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </span>
+                </div>
+
+                <Form.Text className="text-muted" style={{ fontSize: "10px" }}>
+                  Minimum 8 characters with uppercase, lowercase, number and
+                  special character.
+                </Form.Text>
+              </Form.Group>
+
+              {/* Confirm Password */}
+              <Form.Group className="mb-1">
+                <Form.Label className="fw-semibold small mb-1">
+                  Confirm Password
+                </Form.Label>
+
+                <div className="position-relative">
+                  <Form.Control
+                    size="sm"
+                    type={showConfirmPassword ? "text" : "password"}
+                    name="confirmPassword"
+                    placeholder="Confirm password"
+                    value={formData.confirmPassword}
+                    onChange={handleChange}
+                    required
+                    className="bg-light pe-5 shadow-none"
+                  />
+
+                  <span
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="position-absolute top-50 end-0 translate-middle-y me-3"
+                    style={{ cursor: "pointer", color: "#64748b" }}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff size={17} />
+                    ) : (
+                      <Eye size={17} />
+                    )}
+                  </span>
+                </div>
+              </Form.Group>
+
+              {/* Role */}
+              <Form.Group className="mb-1">
+                <Form.Label className="fw-semibold small mb-1">
+                  Select Your Role
+                </Form.Label>
+
+                <InputGroup size="sm">
+                  <InputGroup.Text className="bg-light text-success">
+                    <i className="bi bi-person-badge"></i>
+                  </InputGroup.Text>
+
+                  <Form.Select
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    required
+                    className="bg-light shadow-none"
+                  >
+                    <option value="" className="mb-2">
+                      Select your role
+                    </option>
+                    <option value="doctor" className="mb-2">
+                      Doctor
+                    </option>
+                    <option value="nurse" className="mb-2">
+                      {" "}
+                      Nurse
+                    </option>
+                  </Form.Select>
+                </InputGroup>
+              </Form.Group>
+
+              {/* Submit */}
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-100 py-2 fw-semibold border-0 shadow-sm mt-1"
+                style={{
+                  background: "linear-gradient(145deg,  #0f766e, #0891b2)",
+                }}
+              >
+                {loading ? (
+                  <>
+                    <Spinner size="sm" className="me-2" />
+                    Registering...
+                  </>
+                ) : (
+                  <>
+                    <i className="bi bi-person-check-fill me-2"></i>
+                    Create Account
+                  </>
+                )}
+              </Button>
+            </Form>
+
+            <div className="text-center mt-3">
+              <span className="text-secondary small">Already Registered?</span>
+
+              <Link
+                to="/"
+                className="text-decoration-none fw-bold small ms-2"
+                style={{ color: "#15803d" }}
+              >
+                Login Now
+              </Link>
+            </div>
+
+            <hr className="my-3" />
+
+            <p
+              className="text-center text-secondary mb-0"
+              style={{ fontSize: "11px" }}
             >
-              Login Now
-            </Link>
-          </div>
-        </Card.Body>
+              <i className="bi bi-shield-lock me-1"></i>© 2026 All Rights
+              Reserved
+            </p>
+          </Col>
+        </Row>
       </Card>
 
-      {/* Warning / Success Modal */}
+      {/* Registration Modal */}
       <Modal
         show={showModal}
         onHide={() => setShowModal(false)}

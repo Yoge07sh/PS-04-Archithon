@@ -66,7 +66,7 @@ function App() {
                     />
 
                     <Route
-                      path="/consultations/new"
+                      path="/createConsultations/:patientId"
                       element={<CreateConsultation />}
                     />
 

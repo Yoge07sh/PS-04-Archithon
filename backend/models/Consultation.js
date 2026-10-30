@@ -25,6 +25,11 @@ const consultationSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    ocrText: {
+      type: String,
+      default: "",
+      maxlength: 50000,
+    },
 
     notes: {
       type: String,

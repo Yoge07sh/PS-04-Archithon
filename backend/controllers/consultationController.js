@@ -607,6 +607,7 @@ const generateClinicalDraft = asyncHandler(async (req, res) => {
     ocrText = "",
   } = req.body;
 
+  // Validate patient ID
   if (
     typeof patientId !== "string" ||
     !mongoose.Types.ObjectId.isValid(patientId)
@@ -614,23 +615,39 @@ const generateClinicalDraft = asyncHandler(async (req, res) => {
     return sendError(res, 400, "A valid server patient ID is required.");
   }
 
+  // Verify patient exists
   const patient = await Patient.findById(patientId);
 
   if (!patient) {
     return sendError(res, 404, "Patient not found.");
   }
 
-  const validationError = validateConsultationData({
-    symptoms,
-    notes,
-    transcription,
-    ocrText,
-  });
-
-  if (validationError) {
-    return sendError(res, 400, validationError);
+  // Validate symptoms
+  if (
+    !Array.isArray(symptoms) ||
+    !symptoms.every(
+      (symptom) => typeof symptom === "string" && symptom.length <= 500,
+    )
+  ) {
+    return sendError(res, 400, "Invalid symptoms.");
   }
 
+  // Validate clinical notes
+  if (typeof notes !== "string" || notes.length > 20000) {
+    return sendError(res, 400, "Invalid clinical notes.");
+  }
+
+  // Validate voice transcription
+  if (typeof transcription !== "string" || transcription.length > 50000) {
+    return sendError(res, 400, "Invalid transcription.");
+  }
+
+  // Validate OCR text
+  if (typeof ocrText !== "string" || ocrText.length > 50000) {
+    return sendError(res, 400, "Invalid OCR text.");
+  }
+
+  // Prepare clinical information
   const clinicalText = [
     symptoms.length ? `Reported symptoms:\n${symptoms.join(", ")}` : "",
     notes.trim() ? `Clinical notes:\n${notes.trim()}` : "",
@@ -648,11 +665,13 @@ const generateClinicalDraft = asyncHandler(async (req, res) => {
     );
   }
 
+  // Ollama configuration
   const ollamaUrl =
     process.env.OLLAMA_GENERATE_URL || "http://127.0.0.1:11434/api/generate";
 
-  const ollamaModel = process.env.OLLAMA_MODEL || "llama3.2";
+  const ollamaModel = process.env.OLLAMA_MODEL || "gemma4:e2b";
 
+  // Clinical documentation prompt
   const prompt = `
 You are a clinical documentation assistant.
 
@@ -685,6 +704,9 @@ ${clinicalText}
 
   let ollamaResponse;
 
+  // Send request to Ollama
+  
+  // Send request to Ollama
   try {
     ollamaResponse = await fetch(ollamaUrl, {
       method: "POST",
@@ -696,22 +718,35 @@ ${clinicalText}
         prompt,
         stream: false,
         format: "json",
+        keep_alive: "10m",
         options: {
           temperature: 0.1,
         },
       }),
-      signal: AbortSignal.timeout(60000),
+      signal: AbortSignal.timeout(180000),
     });
   } catch (error) {
-    console.error("Ollama connection error:", error.message);
+    console.error("Ollama request failed:", error);
+
+    if (
+      error.name === "TimeoutError" ||
+      error.name === "AbortError"
+    ) {
+      return sendError(
+        res,
+        504,
+        "Ollama took too long to generate the clinical draft. Please try again."
+      );
+    }
 
     return sendError(
       res,
       503,
-      "The local AI service is unavailable. Check that Ollama is running.",
+      "Unable to connect to Ollama. Check that the service is running and reachable."
     );
   }
 
+  // Handle Ollama errors
   if (!ollamaResponse.ok) {
     const details = await ollamaResponse.text();
 
@@ -724,12 +759,19 @@ ${clinicalText}
     );
   }
 
-  const ollamaData = await ollamaResponse.json();
+  let ollamaData;
 
-  if (!ollamaData.response) {
+  try {
+    ollamaData = await ollamaResponse.json();
+  } catch {
+    return sendError(res, 502, "The AI service returned an invalid response.");
+  }
+
+  if (typeof ollamaData.response !== "string" || !ollamaData.response.trim()) {
     return sendError(res, 502, "The AI service returned an empty response.");
   }
 
+  // Parse generated JSON
   let aiDraft;
 
   try {
@@ -738,6 +780,7 @@ ${clinicalText}
     return sendError(res, 502, "The AI service returned invalid JSON.");
   }
 
+  // Validate AI draft structure
   if (
     !aiDraft ||
     typeof aiDraft !== "object" ||
@@ -755,6 +798,7 @@ ${clinicalText}
     );
   }
 
+  // Return draft to frontend
   return res.status(200).json({
     success: true,
     message: "AI clinical draft generated successfully.",

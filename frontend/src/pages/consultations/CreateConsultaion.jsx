@@ -21,7 +21,8 @@ import {
   FaRobot,
   FaSave,
   FaArrowLeft,
-  FaFileImage,
+  FaPlay,
+  FaRedo,
 } from "react-icons/fa";
 
 import { createWorker } from "tesseract.js";
@@ -35,11 +36,14 @@ const CreateConsultation = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Accept patientId from either route parameters or navigation state.
-  const patientId =
-    routePatientId || location.state?.patientId || "";
+  const patientId = routePatientId || location.state?.patientId || "";
 
   const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
+  const audioStreamRef = useRef(null);
+  const audioUrlRef = useRef(null);
+  const audioPlayerRef = useRef(null);
   const workerRef = useRef(null);
   const mountedRef = useRef(true);
 
@@ -51,12 +55,19 @@ const CreateConsultation = () => {
   const [source, setSource] = useState("manual");
 
   const [recording, setRecording] = useState(false);
+  const [hasRecordedAudio, setHasRecordedAudio] = useState(false);
+  const [recordedAudioUrl, setRecordedAudioUrl] = useState("");
+
   const [processingOcr, setProcessingOcr] = useState(false);
   const [generatingAi, setGeneratingAi] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  // ============================================
+  // CLEANUP
+  // ============================================
 
   useEffect(() => {
     mountedRef.current = true;
@@ -70,12 +81,43 @@ const CreateConsultation = () => {
         recognitionRef.current.onend = null;
 
         try {
-          recognitionRef.current.stop();
+          recognitionRef.current.abort();
         } catch {
           // Recognition may already have stopped.
         }
 
         recognitionRef.current = null;
+      }
+
+      if (mediaRecorderRef.current) {
+        const recorder = mediaRecorderRef.current;
+
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
+        recorder.onerror = null;
+
+        try {
+          if (recorder.state !== "inactive") {
+            recorder.stop();
+          }
+        } catch {
+          // Recorder may already have stopped.
+        }
+
+        mediaRecorderRef.current = null;
+      }
+
+      if (audioStreamRef.current) {
+        audioStreamRef.current.getTracks().forEach((track) => {
+          track.stop();
+        });
+
+        audioStreamRef.current = null;
+      }
+
+      if (audioUrlRef.current) {
+        URL.revokeObjectURL(audioUrlRef.current);
+        audioUrlRef.current = null;
       }
 
       if (workerRef.current) {
@@ -89,114 +131,506 @@ const CreateConsultation = () => {
     window.SpeechRecognition || window.webkitSpeechRecognition;
 
   // ============================================
-  // VOICE INPUT
+  // AUDIO HELPERS
   // ============================================
 
-  const startVoiceRecording = () => {
+  const releaseAudioStream = () => {
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach((track) => {
+        track.stop();
+      });
+
+      audioStreamRef.current = null;
+    }
+  };
+
+  const clearPreviousAudio = () => {
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+
+    setRecordedAudioUrl("");
+    setHasRecordedAudio(false);
+  };
+
+  // ============================================
+  // START AUDIO RECORDING
+  // ============================================
+
+  const startVoiceRecording = async () => {
+    if (recording || saving || processingOcr || generatingAi) {
+      return;
+    }
+
     setError("");
     setSuccess("");
 
-    const SpeechRecognition = getRecognitionConstructor();
+    console.clear();
+    console.log("========== AUDIO RECORDING DEBUG ==========");
+    console.log("Browser:", navigator.userAgent);
+    console.log("MediaRecorder available:", typeof MediaRecorder !== "undefined");
+    console.log(
+      "getUserMedia available:",
+      Boolean(navigator.mediaDevices?.getUserMedia),
+    );
 
-    if (!SpeechRecognition) {
+    if (
+      !navigator.mediaDevices?.getUserMedia ||
+      typeof window.MediaRecorder === "undefined"
+    ) {
       setError(
-        "Speech recognition is not supported by this browser. Try a supported version of Chrome or enter the transcription manually.",
+        "Audio recording is not supported. Try a recent version of Chrome or Edge using localhost or HTTPS.",
       );
+      console.error("Microphone recording APIs are unavailable.");
+      return;
+    }
+
+    clearPreviousAudio();
+    audioChunksRef.current = [];
+
+    let stream;
+
+    try {
+      console.log("Requesting microphone permission...");
+
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      });
+
+      if (!mountedRef.current) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+
+      audioStreamRef.current = stream;
+
+      console.log("Microphone permission granted.");
+      console.log("Audio tracks:", stream.getAudioTracks().length);
+
+      stream.getAudioTracks().forEach((track, index) => {
+        console.log(`Audio track ${index + 1}:`, {
+          label: track.label,
+          enabled: track.enabled,
+          muted: track.muted,
+          readyState: track.readyState,
+          settings: track.getSettings(),
+        });
+
+        track.onmute = () => {
+          console.warn(`Microphone track ${index + 1} became muted.`);
+        };
+
+        track.onunmute = () => {
+          console.log(`Microphone track ${index + 1} became unmuted.`);
+        };
+      });
+
+      const supportedMimeTypes = [
+        "audio/webm;codecs=opus",
+        "audio/webm",
+        "audio/mp4",
+        "audio/ogg;codecs=opus",
+      ];
+
+      console.log("Checking supported audio formats...");
+
+      supportedMimeTypes.forEach((type) => {
+        console.log(type, MediaRecorder.isTypeSupported(type));
+      });
+
+      const selectedMimeType = supportedMimeTypes.find((type) =>
+        MediaRecorder.isTypeSupported(type),
+      );
+
+      const mediaRecorder = selectedMimeType
+        ? new MediaRecorder(stream, { mimeType: selectedMimeType })
+        : new MediaRecorder(stream);
+
+      mediaRecorderRef.current = mediaRecorder;
+
+      console.log("Selected MIME type:", mediaRecorder.mimeType);
+      console.log("Initial recorder state:", mediaRecorder.state);
+
+      mediaRecorder.onstart = () => {
+        console.log("MediaRecorder started:", mediaRecorder.state);
+      };
+
+      mediaRecorder.ondataavailable = (event) => {
+        console.log("Audio data event received.");
+        console.log("Chunk size:", event.data?.size ?? 0);
+        console.log("Chunk MIME type:", event.data?.type ?? "unknown");
+
+        if (event.data && event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+
+          const totalSize = audioChunksRef.current.reduce(
+            (sum, chunk) => sum + chunk.size,
+            0,
+          );
+
+          console.log("Chunks collected:", audioChunksRef.current.length);
+          console.log("Accumulated size:", totalSize, "bytes");
+        } else {
+          console.warn("Received an empty audio chunk.");
+        }
+      };
+
+      mediaRecorder.onerror = (event) => {
+        console.error("MediaRecorder error:", event.error || event);
+
+        if (mountedRef.current) {
+          setError(
+            `Audio recorder error: ${event.error?.message || event.error?.name || "Unknown error"}`,
+          );
+          setRecording(false);
+        }
+
+        releaseAudioStream();
+      };
+
+      mediaRecorder.onstop = () => {
+        console.log("========== RECORDING STOPPED ==========");
+        console.log("Final recorder state:", mediaRecorder.state);
+
+        const chunks = [...audioChunksRef.current];
+
+        const mimeType =
+          mediaRecorder.mimeType ||
+          chunks.find((chunk) => chunk.type)?.type ||
+          "audio/webm";
+
+        console.log("Total chunks:", chunks.length);
+        console.log("MIME type:", mimeType);
+
+        const audioBlob = new Blob(chunks, { type: mimeType });
+
+        console.log("Final audio size:", audioBlob.size, "bytes");
+        console.log("Final Blob MIME type:", audioBlob.type);
+
+        releaseAudioStream();
+
+        if (mountedRef.current) {
+          setRecording(false);
+        }
+
+        if (mediaRecorderRef.current === mediaRecorder) {
+          mediaRecorderRef.current = null;
+        }
+
+        if (!mountedRef.current) {
+          audioChunksRef.current = [];
+          return;
+        }
+
+        if (chunks.length === 0 || audioBlob.size === 0) {
+          console.error("FAILED: No audio data was captured.");
+
+          setError(
+            "No audio data was captured. Check the microphone and browser console, then try again.",
+          );
+
+          audioChunksRef.current = [];
+          return;
+        }
+
+        if (audioUrlRef.current) {
+          URL.revokeObjectURL(audioUrlRef.current);
+        }
+
+        const audioUrl = URL.createObjectURL(audioBlob);
+
+        audioUrlRef.current = audioUrl;
+
+        console.log("Audio object URL created:", audioUrl);
+        console.log("Audio Blob created successfully.");
+        console.log("========== END RECORDING DEBUG ==========");
+
+        setRecordedAudioUrl(audioUrl);
+        setHasRecordedAudio(true);
+
+        setSuccess(
+          `Recording captured (${(audioBlob.size / 1024).toFixed(1)} KB). Try playing it below.`,
+        );
+
+        audioChunksRef.current = [];
+      };
+
+      // Start actual audio recording.
+      mediaRecorder.start(1000);
+
+      console.log("Recorder state after start:", mediaRecorder.state);
+
+      setRecording(true);
+      setSource("transcription");
+
+      // ========================================
+      // SPEECH-TO-TEXT
+      // ========================================
+
+      const SpeechRecognition = getRecognitionConstructor();
+
+      if (!SpeechRecognition) {
+        console.warn("SpeechRecognition is not supported in this browser.");
+
+        setError(
+          "Audio recording is active, but speech-to-text is unsupported. You can still play your audio and enter transcription manually.",
+        );
+
+        return;
+      }
+
+      try {
+        const recognition = new SpeechRecognition();
+
+        recognition.lang = "en-IN";
+        recognition.continuous = true;
+        recognition.interimResults = true;
+
+        recognition.onstart = () => {
+          if (mountedRef.current) {
+            setSuccess("Recording audio and listening for speech...");
+          }
+        };
+
+        recognition.onresult = (event) => {
+          if (!mountedRef.current) return;
+
+          let finalText = "";
+          let interimText = "";
+
+          for (
+            let index = event.resultIndex;
+            index < event.results.length;
+            index++
+          ) {
+            const result = event.results[index];
+            const text = result[0]?.transcript?.trim();
+
+            if (!text) continue;
+
+            if (result.isFinal) {
+              finalText += `${text} `;
+            } else {
+              interimText += `${text} `;
+            }
+          }
+
+          if (finalText.trim()) {
+            setTranscription((previous) =>
+              [previous.trim(), finalText.trim()]
+                .filter(Boolean)
+                .join(" "),
+            );
+          }
+
+          if (interimText.trim()) {
+            setSuccess(`Listening: ${interimText.trim()}`);
+          }
+        };
+
+        recognition.onerror = (event) => {
+          console.error("Speech recognition error:", event.error);
+
+          if (!mountedRef.current) return;
+
+          if (event.error === "not-allowed") {
+            setError(
+              "Speech recognition permission was denied. Audio recording may still work.",
+            );
+          } else if (
+            event.error !== "no-speech" &&
+            event.error !== "aborted"
+          ) {
+            setError(
+              `Speech-to-text error: ${event.error}. The audio recorder may still be recording.`,
+            );
+          }
+        };
+
+        recognition.onend = () => {
+          if (recognitionRef.current === recognition) {
+            recognitionRef.current = null;
+          }
+
+          console.log("Speech recognition ended.");
+        };
+
+        recognitionRef.current = recognition;
+        recognition.start();
+      } catch (recognitionError) {
+        console.error(
+          "Unable to start speech recognition:",
+          recognitionError,
+        );
+
+        setError(
+          "Audio recording is running, but speech-to-text could not start. You can enter the transcription manually.",
+        );
+      }
+    } catch (err) {
+      console.error("========== MICROPHONE ERROR ==========");
+      console.error("Name:", err.name);
+      console.error("Message:", err.message);
+      console.error(err);
+
+      if (stream && audioStreamRef.current !== stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
+
+      releaseAudioStream();
+
+      const message =
+        err.name === "NotAllowedError"
+          ? "Microphone permission was denied. Allow microphone access in your browser settings."
+          : err.name === "NotFoundError"
+            ? "No microphone was found. Connect a microphone and try again."
+            : err.name === "NotReadableError"
+              ? "The microphone is busy or unavailable. Close other apps using it and try again."
+              : err.message || "Unable to start audio recording.";
+
+      if (mountedRef.current) {
+        setError(message);
+        setRecording(false);
+      }
+
+      if (mediaRecorderRef.current) {
+        const recorder = mediaRecorderRef.current;
+
+        try {
+          if (recorder.state !== "inactive") {
+            recorder.stop();
+          }
+        } catch {
+          // Ignore cleanup errors.
+        }
+
+        mediaRecorderRef.current = null;
+      }
+    }
+  };
+
+  // ============================================
+  // STOP AUDIO RECORDING
+  // ============================================
+
+  const stopVoiceRecording = () => {
+    console.log("Stop recording requested.");
+
+    if (recognitionRef.current) {
+      const recognition = recognitionRef.current;
+      recognitionRef.current = null;
+
+      try {
+        recognition.stop();
+      } catch (err) {
+        console.warn("Speech recognition already stopped:", err);
+      }
+    }
+
+    const mediaRecorder = mediaRecorderRef.current;
+
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+      console.log("Stopping recorder in state:", mediaRecorder.state);
+
+      try {
+        mediaRecorder.stop();
+      } catch (err) {
+        console.error("Unable to stop recorder:", err);
+        setError("Unable to stop the audio recording.");
+        setRecording(false);
+        releaseAudioStream();
+      }
+    } else {
+      console.warn("Recorder is missing or already inactive.");
+      setRecording(false);
+      releaseAudioStream();
+    }
+  };
+
+  // ============================================
+  // DELETE AUDIO
+  // ============================================
+
+  const deleteRecordedAudio = () => {
+    if (recording) {
+      stopVoiceRecording();
+    }
+
+    clearPreviousAudio();
+    audioChunksRef.current = [];
+
+    setSuccess("Temporary audio recording cleared.");
+    setError("");
+  };
+
+  // ============================================
+  // AUDIO PLAYER EVENTS
+  // ============================================
+
+  const handleAudioLoaded = (event) => {
+    const audio = event.currentTarget;
+
+    console.log("========== AUDIO PLAYER DEBUG ==========");
+    console.log("Audio duration:", audio.duration);
+    console.log("Audio readyState:", audio.readyState);
+    console.log("Audio networkState:", audio.networkState);
+    console.log("Audio MIME type:", audio.currentSrc);
+    console.log("Audio error:", audio.error);
+
+    if (Number.isFinite(audio.duration)) {
+      console.log("Audio metadata loaded successfully.");
+    } else {
+      console.warn("Audio duration is not available.");
+    }
+  };
+
+  const handleAudioCanPlay = () => {
+    console.log("SUCCESS: Browser reports audio can play.");
+  };
+
+  const handleAudioPlay = () => {
+    console.log("Audio playback started.");
+  };
+
+  const handleAudioError = (event) => {
+    const audio = event.currentTarget;
+
+    console.error("========== AUDIO PLAYBACK ERROR ==========");
+    console.error("MediaError:", audio.error);
+    console.error("Error code:", audio.error?.code);
+    console.error("Error message:", audio.error?.message);
+    console.error("Source:", audio.currentSrc);
+
+    setError(
+      `Unable to play audio. Browser media error code: ${audio.error?.code ?? "unknown"}. Check the Console.`,
+    );
+  };
+
+  const replayAudio = async () => {
+    const audio = audioPlayerRef.current;
+
+    if (!audio) {
+      setError("Audio player is not available.");
       return;
     }
 
     try {
-      const recognition = new SpeechRecognition();
+      audio.currentTime = 0;
+      await audio.play();
 
-      recognition.lang = "en-IN";
-      recognition.continuous = true;
-      recognition.interimResults = true;
-
-      recognition.onstart = () => {
-        if (!mountedRef.current) return;
-
-        setRecording(true);
-        setSource("transcription");
-      };
-
-      recognition.onresult = (event) => {
-        if (!mountedRef.current) return;
-
-        let finalText = "";
-        let interimText = "";
-
-        for (
-          let index = event.resultIndex;
-          index < event.results.length;
-          index++
-        ) {
-          const result = event.results[index];
-          const text = result[0]?.transcript?.trim();
-
-          if (!text) continue;
-
-          if (result.isFinal) {
-            finalText += `${text} `;
-          } else {
-            interimText += `${text} `;
-          }
-        }
-
-        // Keep finalized speech separate from temporary interim results.
-        if (finalText.trim()) {
-          setTranscription((previous) =>
-            [previous.trim(), finalText.trim()]
-              .filter(Boolean)
-              .join(" "),
-          );
-        }
-
-        // Interim speech is shown only as a preview.
-        // It is not added to the saved transcription.
-        if (interimText.trim()) {
-          setSuccess(`Listening: ${interimText.trim()}`);
-        }
-      };
-
-      recognition.onerror = (event) => {
-        if (!mountedRef.current) return;
-
-        if (event.error === "not-allowed") {
-          setError(
-            "Microphone access was denied. Allow microphone access in your browser settings.",
-          );
-        } else if (event.error !== "no-speech" && event.error !== "aborted") {
-          setError(
-            `Speech recognition failed: ${event.error}. You can enter the transcription manually.`,
-          );
-        }
-      };
-
-      recognition.onend = () => {
-        if (!mountedRef.current) return;
-
-        setRecording(false);
-        recognitionRef.current = null;
-      };
-
-      recognitionRef.current = recognition;
-      recognition.start();
+      console.log("Replay requested successfully.");
     } catch (err) {
-      setError(err.message || "Unable to start voice recording.");
-      setRecording(false);
-      recognitionRef.current = null;
-    }
-  };
+      console.error("Audio play() failed:", err);
 
-  const stopVoiceRecording = () => {
-    try {
-      recognitionRef.current?.stop();
-    } catch {
-      // Recognition may already have stopped.
+      setError(
+        `Playback failed: ${err.message}. Try pressing Play directly on the audio player.`,
+      );
     }
-
-    recognitionRef.current = null;
-    setRecording(false);
   };
 
   // ============================================
@@ -252,6 +686,7 @@ const CreateConsultation = () => {
         "Text extracted successfully. Review the OCR text for errors before generating the AI draft.",
       );
     } catch (err) {
+      console.error("OCR error:", err);
       setError(err.message || "Unable to extract text from the image.");
     } finally {
       if (worker) {
@@ -286,7 +721,6 @@ const CreateConsultation = () => {
 
   // ============================================
   // GENERATE AI CLINICAL DRAFT
-  // POST /ai/clinical-draft
   // ============================================
 
   const generateAiDraft = async () => {
@@ -358,6 +792,8 @@ const CreateConsultation = () => {
         "AI draft generated successfully. Review the information carefully before saving.",
       );
     } catch (err) {
+      console.error("AI draft error:", err);
+
       const message =
         err.response?.data?.message ||
         (err.code === "ECONNABORTED"
@@ -373,7 +809,6 @@ const CreateConsultation = () => {
 
   // ============================================
   // SAVE CONSULTATION
-  // POST /consultations
   // ============================================
 
   const handleSubmit = async (event) => {
@@ -381,6 +816,11 @@ const CreateConsultation = () => {
 
     setError("");
     setSuccess("");
+
+    if (recording) {
+      setError("Stop the recording before saving the consultation.");
+      return;
+    }
 
     if (!patientId || patientId.startsWith("local-")) {
       setError(
@@ -469,23 +909,20 @@ const CreateConsultation = () => {
             "ECONNABORTED",
           ].includes(requestError.code);
 
-          // Do not store a failed validation, authentication, or server
-          // request as a local record. Only attempt fallback for an
-          // actual connectivity problem while the browser is offline.
           if (status || navigator.onLine || !connectivityError) {
             throw requestError;
           }
         }
       }
 
-      // Local fallback is useful only if the storage layer supports
-      // this patient ID. The current storage helper may reject local IDs.
       await addConsultationLocally(consultationData);
 
       setSuccess(
         "Consultation saved locally. It can be synchronized when the connection returns.",
       );
     } catch (err) {
+      console.error("Save consultation error:", err);
+
       setError(
         err.response?.data?.message ||
           err.message ||
@@ -521,9 +958,7 @@ const CreateConsultation = () => {
         </p>
 
         {patientId && (
-          <Badge bg="secondary">
-            Patient ID: {patientId}
-          </Badge>
+          <Badge bg="secondary">Patient ID: {patientId}</Badge>
         )}
       </div>
 
@@ -549,6 +984,7 @@ const CreateConsultation = () => {
 
       <Form onSubmit={handleSubmit}>
         {/* 1. Clinical information */}
+
         <Card className="border-0 shadow-sm mb-4">
           <Card.Header className="bg-white py-3">
             <h5 className="mb-0">1. Clinical Information</h5>
@@ -588,9 +1024,10 @@ const CreateConsultation = () => {
         </Card>
 
         {/* 2. Voice input */}
+
         <Card className="border-0 shadow-sm mb-4">
           <Card.Header className="bg-white py-3">
-            <h5 className="mb-0">2. Voice Input</h5>
+            <h5 className="mb-0">2. Voice Input & Audio Recording</h5>
           </Card.Header>
 
           <Card.Body className="p-4">
@@ -600,11 +1037,7 @@ const CreateConsultation = () => {
                   type="button"
                   variant="danger"
                   onClick={startVoiceRecording}
-                  disabled={
-                    saving ||
-                    processingOcr ||
-                    generatingAi
-                  }
+                  disabled={saving || processingOcr || generatingAi}
                 >
                   <FaMicrophone className="me-2" />
                   Record Voice
@@ -626,6 +1059,69 @@ const CreateConsultation = () => {
                 </Badge>
               )}
             </div>
+
+            {recording && (
+              <Alert variant="warning">
+                Your microphone is recording. Speak for 5–10 seconds, then
+                click Stop Recording.
+              </Alert>
+            )}
+
+            {hasRecordedAudio && recordedAudioUrl && (
+              <Card className="bg-light border mb-4">
+                <Card.Body>
+                  <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                    <h6 className="mb-0">
+                      <FaPlay className="me-2" />
+                      Recorded Audio
+                    </h6>
+
+                    <Badge bg="success">Ready to test</Badge>
+                  </div>
+
+                  <audio
+                    ref={audioPlayerRef}
+                    src={recordedAudioUrl}
+                    controls
+                    preload="metadata"
+                    className="w-100"
+                    onLoadedMetadata={handleAudioLoaded}
+                    onCanPlay={handleAudioCanPlay}
+                    onPlay={handleAudioPlay}
+                    onError={handleAudioError}
+                  >
+                    Your browser does not support audio playback.
+                  </audio>
+
+                  <div className="d-flex flex-wrap gap-2 mt-3">
+                    <Button
+                      type="button"
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={replayAudio}
+                    >
+                      <FaRedo className="me-2" />
+                      Replay from Start
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={deleteRecordedAudio}
+                      disabled={saving}
+                    >
+                      Delete Recording
+                    </Button>
+                  </div>
+
+                  <Form.Text className="text-muted d-block mt-2">
+                    Debug mode: this audio is temporarily stored in your
+                    browser. It is not uploaded or permanently saved.
+                  </Form.Text>
+                </Card.Body>
+              </Card>
+            )}
 
             <Form.Group>
               <Form.Label>Voice Transcription</Form.Label>
@@ -649,6 +1145,7 @@ const CreateConsultation = () => {
         </Card>
 
         {/* 3. OCR */}
+
         <Card className="border-0 shadow-sm mb-4">
           <Card.Header className="bg-white py-3">
             <h5 className="mb-0">3. OCR Document Input</h5>
@@ -662,11 +1159,7 @@ const CreateConsultation = () => {
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
-                disabled={
-                  processingOcr ||
-                  saving ||
-                  generatingAi
-                }
+                disabled={processingOcr || saving || generatingAi || recording}
               />
 
               <Form.Text className="text-muted">
@@ -677,11 +1170,7 @@ const CreateConsultation = () => {
 
             {processingOcr && (
               <div className="mb-3">
-                <Spinner
-                  size="sm"
-                  animation="border"
-                  className="me-2"
-                />
+                <Spinner size="sm" animation="border" className="me-2" />
                 Extracting text from the image...
               </div>
             )}
@@ -703,6 +1192,7 @@ const CreateConsultation = () => {
         </Card>
 
         {/* 4. AI draft */}
+
         <Card className="border-0 shadow-sm mb-4">
           <Card.Header className="bg-white py-3">
             <h5 className="mb-0">4. AI Clinical Draft</h5>
@@ -721,19 +1211,12 @@ const CreateConsultation = () => {
               className="mb-3"
               onClick={generateAiDraft}
               disabled={
-                generatingAi ||
-                saving ||
-                recording ||
-                processingOcr
+                generatingAi || saving || recording || processingOcr
               }
             >
               {generatingAi ? (
                 <>
-                  <Spinner
-                    size="sm"
-                    animation="border"
-                    className="me-2"
-                  />
+                  <Spinner size="sm" animation="border" className="me-2" />
                   Generating Draft...
                 </>
               ) : (
@@ -774,6 +1257,7 @@ const CreateConsultation = () => {
         </Card>
 
         {/* Actions */}
+
         <div className="d-flex flex-wrap justify-content-end gap-2">
           <Button
             type="button"
@@ -788,19 +1272,12 @@ const CreateConsultation = () => {
             type="submit"
             variant="primary"
             disabled={
-              saving ||
-              recording ||
-              processingOcr ||
-              generatingAi
+              saving || recording || processingOcr || generatingAi
             }
           >
             {saving ? (
               <>
-                <Spinner
-                  size="sm"
-                  animation="border"
-                  className="me-2"
-                />
+                <Spinner size="sm" animation="border" className="me-2" />
                 Saving...
               </>
             ) : (

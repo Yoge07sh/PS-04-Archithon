@@ -1,11 +1,15 @@
+
 import "bootstrap/dist/css/bootstrap.min.css";
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+
 import {
   addPatientLocally,
   savePatientsLocally,
 } from "../../db/patientStorage";
+
 import {
   Container,
   Row,
@@ -14,6 +18,7 @@ import {
   Button,
   Card,
   InputGroup,
+  Modal,
 } from "react-bootstrap";
 
 import {
@@ -43,6 +48,10 @@ const AddPatient = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  // Success modal state
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
@@ -50,6 +59,11 @@ const AddPatient = () => {
       ...prev,
       [name]: value,
     }));
+  };
+
+  const handleSuccessClose = () => {
+    setShowSuccessModal(false);
+    navigate("/patients");
   };
 
   const handleSubmit = async (e) => {
@@ -69,8 +83,8 @@ const AddPatient = () => {
         address: patient.address.trim(),
       };
 
+      // Try saving the patient to the backend first.
       try {
-        // First, try saving the patient to the backend.
         const response = await axios.post(
           `${apiUrl}/add/patient`,
           patientData,
@@ -80,7 +94,6 @@ const AddPatient = () => {
           },
         );
 
-        // Extract the created patient from the API response.
         const responseData = response.data;
 
         const savedPatient =
@@ -88,32 +101,36 @@ const AddPatient = () => {
           responseData.data?.patient ??
           responseData.data;
 
-        // Save the server-generated patient record locally.
+        // Cache the server-generated patient record locally.
         if (savedPatient?._id) {
           await savePatientsLocally([savedPatient]);
         }
 
-        alert(responseData.message || "Patient added successfully!");
+        // Show success modal instead of browser alert.
+        setSuccessMessage(
+          responseData.message || "Patient added successfully!",
+        );
 
         setPatient({ ...initialPatient });
-        navigate("/patients");
+        setShowSuccessModal(true);
       } catch (apiError) {
-        // If the backend is unavailable, save locally.
+        // If the server is unreachable, save locally.
         if (!apiError.response) {
           const localPatient = await addPatientLocally(patientData);
 
           console.log("Patient saved locally:", localPatient);
 
-          alert(
-            "Internet unavailable. Patient saved locally and is pending synchronization.",
+          setSuccessMessage(
+            "Patient saved locally and is pending synchronization.",
           );
 
           setPatient({ ...initialPatient });
-          navigate("/patients");
+          setShowSuccessModal(true);
+
           return;
         }
 
-        // The backend responded with an error, such as validation failure.
+        // Server validation or application error.
         throw apiError;
       }
     } catch (err) {
@@ -149,7 +166,10 @@ const AddPatient = () => {
             </div>
 
             <div>
-              <h3 className="fw-bold text-dark mb-1">Add Patient</h3>
+              <h3 className="fw-bold text-dark mb-1">
+                Add Patient
+              </h3>
+
               <p className="text-secondary mb-0 small">
                 Register a patient in the hospital
               </p>
@@ -181,7 +201,10 @@ const AddPatient = () => {
                 </div>
 
                 <div>
-                  <h5 className="fw-bold mb-1">Patient Information</h5>
+                  <h5 className="fw-bold mb-1">
+                    Patient Information
+                  </h5>
+
                   <p className="text-secondary small mb-0">
                     Please fill in the patient's details below
                   </p>
@@ -210,7 +233,8 @@ const AddPatient = () => {
                     <Col xs={12} md={6}>
                       <Form.Group>
                         <Form.Label className="fw-semibold small">
-                          First Name <span className="text-danger">*</span>
+                          First Name{" "}
+                          <span className="text-danger">*</span>
                         </Form.Label>
 
                         <InputGroup>
@@ -236,7 +260,8 @@ const AddPatient = () => {
                     <Col xs={12} md={6}>
                       <Form.Group>
                         <Form.Label className="fw-semibold small">
-                          Last Name <span className="text-danger">*</span>
+                          Last Name{" "}
+                          <span className="text-danger">*</span>
                         </Form.Label>
 
                         <InputGroup>
@@ -304,7 +329,9 @@ const AddPatient = () => {
                             <option value="male">Male</option>
                             <option value="female">Female</option>
                             <option value="other">Other</option>
-                            <option value="undisclosed">Undisclosed</option>
+                            <option value="undisclosed">
+                              Undisclosed
+                            </option>
                           </Form.Select>
                         </InputGroup>
                       </Form.Group>
@@ -409,6 +436,46 @@ const AddPatient = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Success Modal */}
+      <Modal
+        show={showSuccessModal}
+        onHide={handleSuccessClose}
+        
+        backdrop="static"
+        keyboard={false}
+      >
+        <Modal.Body className="text-center p-4 p-md-5">
+          <div
+            className="d-flex align-items-center justify-content-center rounded-circle mx-auto mb-3"
+            style={{
+              width: "76px",
+              height: "76px",
+              backgroundColor: "#d1e7dd",
+              color: "#198754",
+              fontSize: "38px",
+            }}
+          >
+            <i className="bi bi-check-lg"></i>
+          </div>
+
+          <h4 className="fw-bold text-success mb-2">
+            Success!
+          </h4>
+
+          <p className="text-secondary mb-4">
+            {successMessage}
+          </p>
+
+          <Button
+            variant="success"
+            className="rounded-3 px-5 fw-semibold"
+            onClick={handleSuccessClose}
+          >
+            OK
+          </Button>
+        </Modal.Body>
+      </Modal>
     </Container>
   );
 };

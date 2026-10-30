@@ -52,7 +52,7 @@ function SyncOperationList() {
 
     if (!firstResponse.ok) {
       throw new Error(
-        firstData.message || "Server operations load nahi ho paayi.",
+        firstData.message || "unable to load server operations",
       );
     }
 
@@ -78,7 +78,7 @@ function SyncOperationList() {
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Server operations load nahi ho paayi.",
+          data.message || "unable to load server operations.",
         );
       }
 
@@ -150,9 +150,7 @@ function SyncOperationList() {
 
           setOperations(localOperations);
 
-          setError(
-            "Server se connection nahi ho paaya. Local operations dikha rahe hain.",
-          );
+          setError("cannot connected to server . Local operations are shwon.");
 
           setLastUpdated(new Date());
         }
@@ -160,9 +158,7 @@ function SyncOperationList() {
         if (localError.name === "AbortError") return;
 
         setOperations([]);
-        setError(
-          localError.message || "Local sync operations load nahi ho paayi.",
-        );
+        setError(localError.message || "unable to load Local sync operataions.");
       } finally {
         if (!signal?.aborted) {
           setLoading(false);
