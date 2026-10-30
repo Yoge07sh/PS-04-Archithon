@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { ListGroup } from "react-bootstrap";
@@ -22,11 +21,7 @@ function Sidebar() {
       icon: "bi-people",
       label: "Patients",
     },
-    {
-      path: "/doctors",
-      icon: "bi-person-badge",
-      label: "Doctors",
-    },
+
     {
       path: "/consultations",
       icon: "bi-journal-medical",
@@ -36,50 +31,6 @@ function Sidebar() {
       path: "/sync-operations",
       icon: "bi-arrow-repeat",
       label: "Sync Operations",
-    },
-    {
-      path: "/ai-analysis",
-      icon: "bi-robot",
-      label: "AI Analysis",
-    },
-    {
-      path: "/medical-reports",
-      icon: "bi-file-earmark-medical",
-      label: "Medical Reports",
-    },
-    {
-      path: "/appointments",
-      icon: "bi-calendar-check",
-      label: "Appointments",
-    },
-    {
-      path: "/ai-assistant",
-      icon: "bi-chat-dots",
-      label: "AI Assistant",
-    },
-    {
-      path: "/medicines",
-      icon: "bi-capsule",
-      label: "Medicines",
-    },
-    {
-      path: "/analytics",
-      icon: "bi-bar-chart-line",
-      label: "Analytics",
-    },
-  ];
-
-  // ================= ACCOUNT ITEMS =================
-  const accountItems = [
-    {
-      path: "/profile",
-      icon: "bi-person-circle",
-      label: "Profile",
-    },
-    {
-      path: "/settings",
-      icon: "bi-gear",
-      label: "Settings",
     },
   ];
 
@@ -126,11 +77,7 @@ function Sidebar() {
       )}
 
       {/* SIDEBAR */}
-      <div
-        className={`sidebar d-flex flex-column ${
-          menuOpen ? "show" : ""
-        }`}
-      >
+      <div className={`sidebar d-flex flex-column ${menuOpen ? "show" : ""}`}>
         {/* LOGO */}
         <div className="px-3 py-4 d-flex align-items-center gap-2">
           <div className="sidebar-logo">
@@ -139,9 +86,7 @@ function Sidebar() {
 
           <div>
             <h5 className="mb-0 fw-bold sidebar-brand">MediAI</h5>
-            <small className="text-secondary">
-              Healthcare Intelligence
-            </small>
+            <small className="text-secondary">Healthcare Intelligence</small>
           </div>
 
           {/* MOBILE CLOSE BUTTON */}
@@ -164,53 +109,13 @@ function Sidebar() {
 
           {renderItems(menuItems)}
 
-          {/* ACCOUNT */}
-          <div className="mt-4 mb-2 px-2 text-uppercase fw-semibold sidebar-heading">
-            Account
-          </div>
-
-          {renderItems(accountItems)}
-
           {/* AI CARD */}
-          <div className="mt-4 p-3 rounded-4 ai-sidebar-card">
-            <i className="bi bi-stars fs-4"></i>
-
-            <h6 className="fw-bold mt-2 mb-1">
-              AI Health Assistant
-            </h6>
-
-            <p className="mb-2">
-              Get AI-powered insights from medical reports.
-            </p>
-
-            <NavLink
-              to="/ai-assistant"
-              className="ai-sidebar-btn"
-              onClick={() => setMenuOpen(false)}
-            >
-              Explore AI
-              <i className="bi bi-arrow-right ms-1"></i>
-            </NavLink>
-          </div>
         </div>
 
         {/* FOOTER */}
         <div className="p-3 border-top sidebar-footer">
           <div className="d-flex align-items-center gap-2">
             <i className="bi bi-shield-check fs-4 text-success"></i>
-
-            <div>
-              <div
-                className="fw-semibold"
-                style={{ fontSize: "12px" }}
-              >
-                Secure Healthcare
-              </div>
-
-              <small className="text-secondary">
-                Medical data protection
-              </small>
-            </div>
           </div>
         </div>
       </div>
