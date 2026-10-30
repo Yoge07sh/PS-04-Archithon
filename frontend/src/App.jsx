@@ -1,7 +1,48 @@
-function App() {
-  return( <BrowseRouter>
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
-  </BrowseRouter>
+import Sidebar from "./components/Sidebar/sidebar.jsx";
+import NavBar from "./components/NavBar/Navbar.jsx";
+
+// import WelcomePage from "./pages/Dashboard/Dashboard";
+import AddPatient from "./pages/patients/AddPatient";
+import PatientList from "./pages/patients/PatientList.jsx";
+import Login from "./pages/LoginSignupPages/Login.jsx";
+import EditPatient from "./pages/patients/EditPatient.jsx";
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Login />} />
+        <Route
+          path="*"
+          element={
+            <div className="d-flex">
+              <Sidebar />
+
+              <div className="flex-grow-1" style={{ minWidth: 0 }}>
+                <NavBar />
+                <main
+                  style={{
+                    flexGrow: 1,
+                    padding: "20px",
+                    marginTop: "70px",
+                  }}
+                >
+                  <Routes>
+                    <Route path="/add/patient" element={<AddPatient />}></Route>
+                    <Route path="/patients" element={<PatientList />}></Route>
+                    <Route
+                      path="/edit/patient/:id"
+                      element={<EditPatient />}
+                    ></Route>
+                  </Routes>
+                </main>
+              </div>
+            </div>
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }
 

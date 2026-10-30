@@ -1,0 +1,166 @@
+
+import { useState } from "react";
+import { NavLink } from "react-router-dom";
+import { ListGroup } from "react-bootstrap";
+
+import "bootstrap/dist/css/bootstrap.min.css";
+import "bootstrap-icons/font/bootstrap-icons.css";
+import "./Sidebar.css";
+
+function Sidebar() {
+
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // ================= MENU ITEMS =================
+  const menuItems = [
+    { path: "/admin/dashboard", icon: "bi-speedometer2", label: "Dashboard" },
+    { path: "/patients", icon: "bi-people", label: "Patients" },
+    { path: "/doctors", icon: "bi-person-badge", label: "Doctors" },
+    { path: "/ai-analysis", icon: "bi-robot", label: "AI Analysis" },
+    { path: "/medical-reports", icon: "bi-file-earmark-medical", label: "Medical Reports" },
+    { path: "/appointments", icon: "bi-calendar-check", label: "Appointments" },
+    { path: "/ai-assistant", icon: "bi-chat-dots", label: "AI Assistant" },
+    { path: "/medicines", icon: "bi-capsule", label: "Medicines" },
+    { path: "/analytics", icon: "bi-bar-chart-line", label: "Analytics" },
+  ];
+
+  // ================= ACCOUNT ITEMS =================
+  const accountItems = [
+    { path: "/profile", icon: "bi-person-circle", label: "Profile" },
+    { path: "/settings", icon: "bi-gear", label: "Settings" },
+  ];
+
+  // ================= MENU LINK =================
+  const renderItems = (items) => (
+    <ListGroup variant="flush">
+      {items.map((item) => (
+        <ListGroup.Item
+          key={item.path}
+          as={NavLink}
+          to={item.path}
+          end={item.path === "/admin/dashboard"}
+          onClick={() => setMenuOpen(false)}
+          className="sidebar-link border-0 rounded-3 mb-1 px-3 py-2"
+        >
+          <i className={`bi ${item.icon} me-3`}></i>
+          <span className="fw-medium">{item.label}</span>
+        </ListGroup.Item>
+      ))}
+    </ListGroup>
+  );
+
+  return (
+    <>
+      {/* MOBILE HAMBURGER */}
+      <button
+        className="mobile-menu-btn"
+        onClick={() => setMenuOpen(true)}
+        aria-label="Open sidebar"
+      >
+        <i className="bi bi-list"></i>
+      </button>
+
+      {/* MOBILE OVERLAY */}
+      {menuOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setMenuOpen(false)}
+        ></div>
+      )}
+
+      {/* SIDEBAR */}
+      <div className={`sidebar d-flex flex-column ${menuOpen ? "show" : ""}`}>
+
+        {/* LOGO */}
+        <div className="px-3 py-4 d-flex align-items-center gap-2">
+          <div className="sidebar-logo">
+            <i className="bi bi-heart-pulse fs-4"></i>
+          </div>
+
+          <div>
+            <h5 className="mb-0 fw-bold sidebar-brand">
+              MediAI
+            </h5>
+            <small className="text-secondary">
+              Healthcare Intelligence
+            </small>
+          </div>
+
+          {/* MOBILE CLOSE BUTTON */}
+          <button
+            className="sidebar-close-btn ms-auto"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Close sidebar"
+          >
+            <i className="bi bi-x-lg"></i>
+          </button>
+        </div>
+
+        <hr className="mx-3 my-0" />
+
+        {/* NAVIGATION */}
+        <div className="flex-grow-1 overflow-auto px-3 py-3 main-menu">
+
+          <div className="text-uppercase fw-semibold mb-2 px-2 sidebar-heading">
+            Main Menu
+          </div>
+
+          {renderItems(menuItems)}
+
+          {/* ACCOUNT */}
+          <div className="mt-4 mb-2 px-2 text-uppercase fw-semibold sidebar-heading">
+            Account
+          </div>
+
+          {renderItems(accountItems)}
+
+          {/* AI CARD */}
+          <div className="mt-4 p-3 rounded-4 ai-sidebar-card">
+
+            <i className="bi bi-stars fs-4"></i>
+
+            <h6 className="fw-bold mt-2 mb-1">
+              AI Health Assistant
+            </h6>
+
+            <p className="mb-2">
+              Get AI-powered insights from medical reports.
+            </p>
+
+            <NavLink
+              to="/ai-assistant"
+              className="ai-sidebar-btn"
+              onClick={() => setMenuOpen(false)}
+            >
+              Explore AI
+              <i className="bi bi-arrow-right ms-1"></i>
+            </NavLink>
+
+          </div>
+        </div>
+
+        {/* FOOTER */}
+        <div className="p-3 border-top sidebar-footer">
+          <div className="d-flex align-items-center gap-2">
+
+            <i className="bi bi-shield-check fs-4 text-success"></i>
+
+            <div>
+              <div className="fw-semibold" style={{ fontSize: "12px" }}>
+                Secure Healthcare
+              </div>
+
+              <small className="text-secondary">
+                Medical data protection
+              </small>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </>
+  );
+}
+
+export default Sidebar;

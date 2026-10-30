@@ -1,0 +1,261 @@
+
+/* ================= SIDEBAR ================= */
+
+.sidebar {
+  width: 260px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  flex-shrink: 0;
+  z-index: 1050;
+
+  background: linear-gradient(
+    180deg,
+    #f8feff 0%,
+    #e0f2f1 100%
+  );
+
+  border-right: 1px solid #cce7e5;
+  box-shadow: 4px 0 18px rgba(0, 0, 0, 0.05);
+
+  transition: transform 0.3s ease;
+}
+
+/* LOGO */
+
+.sidebar-logo {
+  width: 42px;
+  height: 42px;
+  background: #0d9488;
+  color: white;
+  border-radius: 12px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sidebar-brand {
+  color: #134e4a;
+}
+
+/* MENU */
+
+.main-menu {
+  margin-top: 10px;
+}
+
+.sidebar-heading {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #64748b;
+}
+
+/* MENU LINKS */
+
+.sidebar-link {
+  color: #374b6f !important;
+  font-size: 14px;
+  transition: all 0.25s ease;
+  background: transparent !important;
+}
+
+.sidebar-link.active {
+  background: #39438d !important;
+  color: white !important;
+
+  box-shadow: 0 5px 12px rgba(111, 78, 55, 0.20);
+}
+
+.sidebar-link:not(.active):hover {
+  background: #a9c4ed !important;
+  color: #06080f !important;
+  transform: translateX(3px);
+}
+
+/* AI CARD */
+
+.ai-sidebar-card {
+  background: linear-gradient(135deg, #d1faf3, #e0e7ff);
+  color: #134e4a;
+  border: 1px solid #b8e8df;
+}
+
+.ai-sidebar-card p {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.ai-sidebar-btn {
+  display: inline-block;
+  text-decoration: none;
+  color: #0d9488;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* FOOTER */
+
+.sidebar-footer {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* SCROLLBAR */
+
+.main-menu::-webkit-scrollbar {
+  width: 5px;
+}
+
+.main-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.main-menu::-webkit-scrollbar-thumb {
+  background: #b6bfd8;
+  border-radius: 10px;
+}
+
+/* LIVE DOT */
+
+.live-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #dc3545;
+  display: inline-block;
+  animation: livePulse 1.5s infinite;
+}
+
+@keyframes livePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.5);
+  }
+
+  70% {
+    box-shadow: 0 0 0 6px rgba(220, 53, 69, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0);
+  }
+}
+
+/* MOBILE BUTTONS */
+
+.mobile-menu-btn,
+.sidebar-close-btn {
+  display: none;
+}
+
+/* ================= MOBILE RESPONSIVE ================= */
+
+@media (max-width: 991px) {
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+
+    width: 280px;
+    max-width: 85vw;
+    height: 100dvh;
+
+    z-index: 1100;
+
+    transform: translateX(-100%);
+    visibility: hidden;
+  }
+
+  .sidebar.show {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  /* HAMBURGER */
+
+  .mobile-menu-btn {
+    display: flex;
+    position: fixed;
+
+    top: 15px;
+    left: 15px;
+
+    width: 43px;
+    height: 43px;
+
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 10px;
+
+    background: #0d9488;
+    color: white;
+
+    font-size: 25px;
+    z-index: 1090;
+
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  /* CLOSE BUTTON */
+
+  .sidebar-close-btn {
+    display: flex;
+
+    width: 32px;
+    height: 32px;
+
+    align-items: center;
+    justify-content: center;
+
+    border: none;
+    border-radius: 8px;
+
+    background: #e0f2f1;
+    color: #134e4a;
+  }
+
+  /* OVERLAY */
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+
+    z-index: 1099;
+  }
+
+  .main-menu {
+    margin-top: 0;
+  }
+
+  .sidebar-link {
+    padding: 12px 14px !important;
+  }
+
+  .sidebar-link:not(.active):hover {
+    transform: none;
+  }
+}
+
+/* SMALL MOBILE */
+
+@media (max-width: 480px) {
+
+  .sidebar {
+    width: 270px;
+  }
+
+  .mobile-menu-btn {
+    top: 12px;
+    left: 12px;
+  }
+
+  .sidebar-heading {
+    font-size: 10px;
+  }
+
+}

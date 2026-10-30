@@ -37,7 +37,7 @@ const doLogin = async (req, res) => {
 
     const user = await User.findOne({
       email: email.trim().toLowerCase(),
-    }).select("+password");
+    })
 
     if (!user) {
       return res.status(401).json({
