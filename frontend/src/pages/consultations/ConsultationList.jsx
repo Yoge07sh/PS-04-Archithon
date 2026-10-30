@@ -392,14 +392,7 @@ const ConsultationList = () => {
             </Badge>
           )}
 
-          <Button
-            variant="primary"
-            onClick={() => navigate("/consultations/new")}
-          >
-            <FaPlus className="me-2" />
-            Add Consultation
-          </Button>
-
+          
           <Button
             variant="outline-primary"
             onClick={() => loadConsultations(false)}
