@@ -2,7 +2,10 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { addPatientLocally, savePatientsLocally } from "../../db/patientStorage";
+import {
+  addPatientLocally,
+  savePatientsLocally,
+} from "../../db/patientStorage";
 import {
   Container,
   Row,
@@ -93,7 +96,7 @@ const AddPatient = () => {
         alert(responseData.message || "Patient added successfully!");
 
         setPatient({ ...initialPatient });
-        navigate("/admin/patients");
+        navigate("/patients");
       } catch (apiError) {
         // If the backend is unavailable, save locally.
         if (!apiError.response) {
@@ -106,7 +109,7 @@ const AddPatient = () => {
           );
 
           setPatient({ ...initialPatient });
-          navigate("/admin/patients");
+          navigate("/patients");
           return;
         }
 

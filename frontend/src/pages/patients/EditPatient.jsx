@@ -192,7 +192,7 @@ const EditPatient = () => {
         ]);
 
         alert(response.data.message || "Patient updated successfully!");
-        navigate("/patientList");
+        navigate("/patients");
       } catch (requestError) {
         // If the server responded, this is an HTTP/API error,
         // not an offline network failure.
