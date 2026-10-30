@@ -27,4 +27,9 @@ router.post("/sync/patient", authMiddleware, (req, res) => {
   patientController.syncOfflinePatient(req, res);
 });
 
+// Get Top 4 Recently Added Patients
+router.get("/patients/recent", authMiddleware, (req, res) => {
+  patientController.getRecentPatients(req, res);
+});
+
 module.exports = router;

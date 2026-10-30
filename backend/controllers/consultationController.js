@@ -35,6 +35,7 @@ const getEditableFields = (body) => {
   if (body.transcription !== undefined) {
     fields.transcription = body.transcription;
   }
+  if (body.ocrText !== undefined) fields.ocrText = body.ocrText;
   if (body.aiDraft !== undefined) fields.aiDraft = body.aiDraft;
   if (body.source !== undefined) fields.source = body.source;
 
@@ -65,6 +66,21 @@ const validateConsultationData = (data) => {
       data.transcription.length > 50000)
   ) {
     return "Transcription must be a string of at most 50000 characters.";
+  }
+
+  if (
+    data.ocrText !== undefined &&
+    (typeof data.ocrText !== "string" || data.ocrText.length > 50000)
+  ) {
+    return "OCR text must be a string of at most 50000 characters.";
+  }
+
+  if (
+    data.aiDraft !== undefined &&
+    data.aiDraft !== null &&
+    (typeof data.aiDraft !== "object" || Array.isArray(data.aiDraft))
+  ) {
+    return "AI draft must be an object or null.";
   }
 
   if (
@@ -138,6 +154,7 @@ const createConsultation = asyncHandler(async (req, res) => {
     symptoms: fields.symptoms || [],
     notes: fields.notes || "",
     transcription: fields.transcription || "",
+    ocrText: fields.ocrText || "",
     source: fields.source || "manual",
     reviewStatus: getReviewStatus(fields.aiDraft),
   });
@@ -205,6 +222,7 @@ const syncConsultation = asyncHandler(async (req, res) => {
       symptoms: fields.symptoms || [],
       notes: fields.notes || "",
       transcription: fields.transcription || "",
+      ocrText: fields.ocrText || "",
       source: fields.source || "manual",
       reviewStatus: getReviewStatus(fields.aiDraft),
     });
@@ -328,6 +346,7 @@ const getAllConsultations = asyncHandler(async (req, res) => {
       { symptoms: regex },
       { notes: regex },
       { transcription: regex },
+      { ocrText: regex },
       {
         patientId: {
           $in: matchingPatients.map((patient) => patient._id),
@@ -509,7 +528,7 @@ const reviewAiDraft = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
 
-  // Supports both the current frontend's { status } and { decision }.
+  // Supports both { status } and { decision }.
   const decision = req.body.status || req.body.decision;
 
   if (!isValidObjectId(id)) {
@@ -594,9 +613,13 @@ const deleteConsultation = asyncHandler(async (req, res) => {
   });
 });
 
+// ============================================
+// GENERATE AI CLINICAL DRAFT
+// POST /ai/clinical-draft
+// ============================================
+
 const generateClinicalDraft = asyncHandler(async (req, res) => {
   const doctorId = validateAuthenticatedUser(req, res);
-
   if (!doctorId) return;
 
   const {
@@ -607,20 +630,9 @@ const generateClinicalDraft = asyncHandler(async (req, res) => {
     ocrText = "",
   } = req.body;
 
-  // Validate patient ID
-  if (
-    typeof patientId !== "string" ||
-    !mongoose.Types.ObjectId.isValid(patientId)
-  ) {
-    return sendError(res, 400, "A valid server patient ID is required.");
-  }
-
-  // Verify patient exists
-  const patient = await Patient.findById(patientId);
-
-  if (!patient) {
-    return sendError(res, 404, "Patient not found.");
-  }
+  // Validate patient ID and make sure the patient exists
+  const patient = await validatePatient(patientId, res);
+  if (!patient) return;
 
   // Validate symptoms
   if (
@@ -705,8 +717,6 @@ ${clinicalText}
   let ollamaResponse;
 
   // Send request to Ollama
-  
-  // Send request to Ollama
   try {
     ollamaResponse = await fetch(ollamaUrl, {
       method: "POST",
@@ -728,21 +738,18 @@ ${clinicalText}
   } catch (error) {
     console.error("Ollama request failed:", error);
 
-    if (
-      error.name === "TimeoutError" ||
-      error.name === "AbortError"
-    ) {
+    if (error.name === "TimeoutError" || error.name === "AbortError") {
       return sendError(
         res,
         504,
-        "Ollama took too long to generate the clinical draft. Please try again."
+        "Ollama took too long to generate the clinical draft. Please try again.",
       );
     }
 
     return sendError(
       res,
       503,
-      "Unable to connect to Ollama. Check that the service is running and reachable."
+      "Unable to connect to Ollama. Check that the service is running and reachable.",
     );
   }
 

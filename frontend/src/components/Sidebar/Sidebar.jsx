@@ -12,7 +12,7 @@ function Sidebar() {
   // ================= MENU ITEMS =================
   const menuItems = [
     {
-      path: "/admin/dashboard",
+      path: "/dashboard",
       icon: "bi-speedometer2",
       label: "Dashboard",
     },
@@ -43,7 +43,7 @@ function Sidebar() {
           as={NavLink}
           to={item.path}
           end={
-            item.path === "/admin/dashboard" ||
+            item.path === "/dashboard" ||
             item.path === "/patients" ||
             item.path === "/consultations"
           }

@@ -310,6 +310,34 @@ const syncOfflinePatient = async (req, res) => {
   }
 };
 
+// top recently patient
+
+const getRecentPatients = async (req, res) => {
+  try {
+    const recentPatients = await Patient.find({
+      isArchived: false,
+    })
+      .select(
+        "patientCode firstName lastName dateOfBirth gender contactNumber address createdAt"
+      )
+      .sort({ createdAt: -1 })
+      .limit(4);
+
+    return res.status(200).json({
+      success: true,
+      data: recentPatients,
+    });
+
+  } catch (err) {
+    console.error("Get recent patients error:", err);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
 module.exports = {
   addPatient,
   getPatients,
@@ -317,4 +345,5 @@ module.exports = {
   editPatientById,
   getPatientForEdit,
   syncOfflinePatient,
+  getRecentPatients,
 };

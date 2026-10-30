@@ -20,6 +20,7 @@ import { usePatientSync } from "./hooks/usePatientSync.js";
 import ConsultationList from "./pages/consultations/ConsultationList.jsx";
 import { initializeSyncManager } from "./services/syncManager.js";
 import SyncOperation from "./pages/SyncOperations/SyncOperationList.jsx";
+import Dashboard from "./pages/Dashboard/Dashboard.jsx";
 function App() {
   useEffect(() => {
     const cleanup = initializeSyncManager();
@@ -48,7 +49,7 @@ function App() {
                   style={{
                     flexGrow: 1,
                     padding: "20px",
-                    marginTop: "70px",
+                    marginTop: "0px",
                   }}
                 >
                   <Routes>
@@ -82,6 +83,7 @@ function App() {
                       path="/sync-operations"
                       element={<SyncOperation />}
                     ></Route>
+                    <Route path="/dashboard" element={<Dashboard />}></Route>
                   </Routes>
                 </main>
               </div>
