@@ -1,4 +1,3 @@
-
 import axios from "axios";
 import { db } from "./localDB";
 import { generateUUID } from "./generateUUID";
@@ -22,31 +21,25 @@ export const syncPendingPatients = async () => {
   let syncedCount = 0;
 
   try {
-    await syncNewPatients(
-      (count) => {
-        syncedCount += count;
-      }
-    );
+    await syncNewPatients((count) => {
+      syncedCount += count;
+    });
 
     if (navigator.onLine) {
-      await syncUpdatedPatients(
-        (count) => {
-          syncedCount += count;
-        }
-      );
+      await syncUpdatedPatients((count) => {
+        syncedCount += count;
+      });
     }
 
     if (navigator.onLine) {
-      await syncDeletedPatients(
-        (count) => {
-          syncedCount += count;
-        }
-      );
+      await syncDeletedPatients((count) => {
+        syncedCount += count;
+      });
     }
   } catch (error) {
     console.error(
       "Patient synchronization failed:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
   } finally {
     syncInProgress = false;
@@ -54,7 +47,7 @@ export const syncPendingPatients = async () => {
 
   if (syncedCount > 0) {
     console.log(
-      `${syncedCount} patient operation(s) synchronized successfully.`
+      `${syncedCount} patient operation(s) synchronized successfully.`,
     );
 
     window.dispatchEvent(new Event("patients-synced"));
@@ -68,7 +61,7 @@ const syncNewPatients = async (onSynced) => {
       (patient) =>
         patient.syncStatus === "pending" &&
         !patient.isArchived &&
-        !patient.archived
+        !patient.archived,
     )
     .toArray();
 
@@ -94,56 +87,47 @@ const syncNewPatients = async (onSynced) => {
         address: localPatient.address || "",
       };
 
-      const response = await axios.post(
-        `${apiUrl}/sync/patient`,
-        patientData,
-        {
-          timeout: 15000,
-          withCredentials: true,
-        }
-      );
+      const response = await axios.post(`${apiUrl}/sync/patient`, patientData, {
+        timeout: 15000,
+        withCredentials: true,
+      });
 
       const serverPatient = response.data?.patient;
 
       if (!serverPatient?._id) {
         throw new Error(
-          "The server did not return the saved patient's MongoDB ID."
+          "The server did not return the saved patient's MongoDB ID.",
         );
       }
 
-      await db.transaction(
-        "rw",
-        db.patients,
-        db.idMappings,
-        async () => {
-          await db.patients.delete(String(localPatient._id));
+      await db.transaction("rw", db.patients, db.idMappings, async () => {
+        await db.patients.delete(String(localPatient._id));
 
-          await db.patients.put({
-            ...serverPatient,
-            _id: String(serverPatient._id),
-            syncId,
-            syncStatus: "synced",
-            isPending: false,
-            isArchived: false,
-            archived: false,
-          });
+        await db.patients.put({
+          ...serverPatient,
+          _id: String(serverPatient._id),
+          syncId,
+          syncStatus: "synced",
+          isPending: false,
+          isArchived: false,
+          archived: false,
+        });
 
-          await db.idMappings.put({
-            localId: String(localPatient._id),
-            serverId: String(serverPatient._id),
-          });
-        }
-      );
+        await db.idMappings.put({
+          localId: String(localPatient._id),
+          serverId: String(serverPatient._id),
+        });
+      });
 
       onSynced(1);
 
       console.log(
-        `Patient synchronized: ${serverPatient.firstName} ${serverPatient.lastName}`
+        `Patient synchronized: ${serverPatient.firstName} ${serverPatient.lastName}`,
       );
     } catch (error) {
       console.error(
         `Failed to sync patient ${localPatient._id}:`,
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
     }
   }
@@ -156,7 +140,7 @@ const syncUpdatedPatients = async (onSynced) => {
         patient.syncStatus === "pending-update" ||
         (patient.syncStatus === "pending" &&
           !String(patient._id).startsWith("local-") &&
-          patient.isPending === true)
+          patient.isPending === true),
     )
     .toArray();
 
@@ -169,10 +153,7 @@ const syncUpdatedPatients = async (onSynced) => {
       const patientId = String(localPatient._id);
 
       if (!patientId || patientId.startsWith("local-")) {
-        console.warn(
-          "Cannot update a patient without a server ID:",
-          patientId
-        );
+        console.warn("Cannot update a patient without a server ID:", patientId);
 
         continue;
       }
@@ -192,7 +173,7 @@ const syncUpdatedPatients = async (onSynced) => {
         {
           timeout: 15000,
           withCredentials: true,
-        }
+        },
       );
 
       const serverPatient =
@@ -203,11 +184,10 @@ const syncUpdatedPatients = async (onSynced) => {
 
       if (
         !serverPatient ||
-        (serverPatient._id &&
-          String(serverPatient._id) !== patientId)
+        (serverPatient._id && String(serverPatient._id) !== patientId)
       ) {
         throw new Error(
-          "The server returned an invalid patient update response."
+          "The server returned an invalid patient update response.",
         );
       }
 
@@ -222,12 +202,12 @@ const syncUpdatedPatients = async (onSynced) => {
       onSynced(1);
 
       console.log(
-        `Patient update synchronized: ${localPatient.firstName} ${localPatient.lastName}`
+        `Patient update synchronized: ${localPatient.firstName} ${localPatient.lastName}`,
       );
     } catch (error) {
       console.error(
         `Failed to sync patient update ${localPatient._id}:`,
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
     }
   }
@@ -240,7 +220,7 @@ const syncDeletedPatients = async (onSynced) => {
     .filter(
       (operation) =>
         operation.entityType?.toLowerCase() === "patient" &&
-        operation.action?.toLowerCase() === "delete"
+        operation.action?.toLowerCase() === "delete",
     )
     .toArray();
 
@@ -250,32 +230,22 @@ const syncDeletedPatients = async (onSynced) => {
     }
 
     try {
-      const patientId = String(
-        operation.entityId || operation.localId || ""
-      );
+      const patientId = String(operation.entityId || operation.localId || "");
 
       if (!patientId || patientId.startsWith("local-")) {
         await db.syncQueue.delete(operation.id);
         continue;
       }
 
-      await axios.delete(
-        `${apiUrl}/delete/patient/${patientId}`,
-        {
-          timeout: 15000,
-          withCredentials: true,
-        }
-      );
+      await axios.delete(`${apiUrl}/delete/patient/${patientId}`, {
+        timeout: 15000,
+        withCredentials: true,
+      });
 
-      await db.transaction(
-        "rw",
-        db.patients,
-        db.syncQueue,
-        async () => {
-          await db.patients.delete(patientId);
-          await db.syncQueue.delete(operation.id);
-        }
-      );
+      await db.transaction("rw", db.patients, db.syncQueue, async () => {
+        await db.patients.delete(patientId);
+        await db.syncQueue.delete(operation.id);
+      });
 
       onSynced(1);
 
@@ -283,7 +253,7 @@ const syncDeletedPatients = async (onSynced) => {
     } catch (error) {
       console.error(
         `Failed to sync patient deletion ${operation.entityId}:`,
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
     }
   }

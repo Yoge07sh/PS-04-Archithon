@@ -30,7 +30,7 @@ const addPatient = async (req, res) => {
 
 const getPatients = async (req, res) => {
   try {
-    const totalPatients = await Patient.countDocuments({});
+    const totalPatients = await Patient.countDocuments();
     const search = (req.query.search || "").trim();
 
     // Exclude archived patients
@@ -320,7 +320,7 @@ const getRecentPatients = async (req, res) => {
       isArchived: false,
     })
       .select(
-        "patientCode firstName lastName dateOfBirth gender contactNumber address createdAt"
+        "patientCode firstName lastName dateOfBirth gender contactNumber address createdAt",
       )
       .sort({ createdAt: -1 })
       .limit(4);
@@ -329,7 +329,6 @@ const getRecentPatients = async (req, res) => {
       success: true,
       data: recentPatients,
     });
-
   } catch (err) {
     console.error("Get recent patients error:", err);
 
